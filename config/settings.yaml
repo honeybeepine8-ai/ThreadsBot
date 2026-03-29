@@ -43,6 +43,8 @@ claude:
 researcher:
   youtube_max_results: 20
   run_interval_hours: 4
+  web_trends_enabled: true              # Webスクレイピングによるトレンド収集
+  theme_tree_coverage_enabled: true     # カバレッジギャップの自動検出
   categories:
     - "skincare_knowledge"
     - "skincare_ingredients"

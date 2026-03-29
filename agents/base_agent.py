@@ -19,10 +19,6 @@ class BaseAgent(ABC):
     Subclasses must implement :meth:`execute`.  The :meth:`run` method wraps
     ``execute()`` with emergency-stop checks, circuit-breaker checks, and
     automatic retry with exponential back-off.
-
-    An optional :class:`AccountContext` can be passed to resolve all file
-    paths and state directories per-account.  When omitted, the default
-    account (project root) is used for full backward compatibility.
     """
 
     MAX_RETRIES: int = 3

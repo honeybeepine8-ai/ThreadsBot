@@ -44,7 +44,7 @@ python scripts/dashboard.py --watch                  # 30秒自動更新
 python scripts/backup.py                             # 手動バックアップ
 python scripts/telegram_bot.py                       # Telegram Botサーバ起動
 python scripts/kill_switch.py stop "理由"            # 緊急停止
-pytest tests/ -v                                     # テスト（254件）
+pytest tests/ -v                                     # テスト（275件）
 ```
 
 ## 重要な設計原則
@@ -55,3 +55,4 @@ pytest tests/ -v                                     # テスト（254件）
 5. 薬機法・ステマ規制の遵守
 6. Telegram通知（アラート・日次レポート・リモート緊急停止）
 7. データ耐久性（90日アーカイブ・日次バックアップ・JSON破損復旧）
+8. 1アカウント優先 — まず@seibun_loveの単体運用を安定させてからマルチアカウント展開に進む。マルチアカウント関連の実装は単体運用が軌道に乗るまで着手しない

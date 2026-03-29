@@ -1,4 +1,4 @@
-"""Researcher agent — collects skincare / beauty topics from YouTube."""
+"""Researcher agent — collects skincare / beauty topics from YouTube and web trends."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ logger = get_logger("researcher")
 
 _CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "settings.yaml"
 _SEASON_MATRIX_PATH = Path(__file__).resolve().parent.parent / "knowledge" / "season_matrix.yaml"
+
 # Category -> search keywords mapping
 _SEARCH_KEYWORDS: dict[str, list[str]] = {
     "skincare_knowledge": ["スキンケア 成分 解説", "美容成分 最新"],
@@ -29,19 +30,37 @@ _SEARCH_KEYWORDS: dict[str, list[str]] = {
     "diet_tips": ["ダイエット 食事", "インナーケア 美肌"],
 }
 
+# Web trend search keywords (broader discovery)
+_WEB_TREND_KEYWORDS: list[str] = [
+    "スキンケア トレンド",
+    "美容成分 話題",
+    "化粧品 新成分",
+    "スキンケア バズ",
+    "肌悩み 解決",
+]
+
+# RSS-like sources for beauty/skincare trends
+_WEB_SOURCES: list[dict[str, str]] = [
+    {"url": "https://www.cosme.net/beautist/article/new", "name": "@cosme"},
+    {"url": "https://maquia.hpplus.jp/skincare/", "name": "MAQUIA"},
+    {"url": "https://www.biteki.com/skin-care/", "name": "美的"},
+]
+
 # Duplicate detection threshold (keyword overlap ratio)
 _DUPLICATE_THRESHOLD = 0.80
 
 
 class ResearcherAgent(BaseAgent):
-    """Collect skincare and beauty content ideas from YouTube.
+    """Collect skincare and beauty content ideas from YouTube and web.
 
     Workflow:
-    1. Search YouTube for recent videos across predefined categories.
-    2. Extract actionable topics via Claude API analysis.
-    3. Deduplicate against the existing research pool.
-    4. Append new items to ``research_pool.json``.
-    5. Clean up stale items.
+    1. Identify under-covered theme tree categories.
+    2. Search YouTube for recent videos across predefined categories.
+    3. Scrape web sources for trending skincare topics.
+    4. Extract actionable topics via Claude API analysis.
+    5. Deduplicate against the existing research pool.
+    6. Append new items to ``research_pool.json``.
+    7. Clean up stale items.
     """
 
     def __init__(self, ctx=None) -> None:
@@ -62,24 +81,42 @@ class ResearcherAgent(BaseAgent):
         """Run the full research pipeline."""
         self.logger.info("Starting research cycle.")
 
-        # 1. Search YouTube
-        videos = self._search_youtube()
-        if not videos:
-            self.logger.warning("No videos found. Skipping extraction.")
-            return
+        # 0. Identify coverage gaps from theme tree
+        coverage_gaps = self._find_coverage_gaps()
+        if coverage_gaps:
+            self.logger.info(
+                "Theme tree coverage gaps: %d categories need more content.",
+                len(coverage_gaps),
+            )
 
+        # 1. Search YouTube
+        videos = self._search_youtube(priority_categories=coverage_gaps)
         self.logger.info("Found %d videos across all categories.", len(videos))
 
-        # 2. Extract topics via Claude
-        new_topics = self._extract_topics(videos)
-        self.logger.info("Extracted %d topic candidates.", len(new_topics))
+        # 2. Scrape web trends
+        web_topics = self._search_web_trends()
+        self.logger.info("Found %d web trend topics.", len(web_topics))
 
-        # 3. Load existing pool and deduplicate
+        # 3. Combine all raw sources
+        all_raw_topics: list[dict[str, Any]] = []
+
+        if videos:
+            youtube_topics = self._extract_topics(videos, coverage_gaps)
+            self.logger.info("Extracted %d YouTube topic candidates.", len(youtube_topics))
+            all_raw_topics.extend(youtube_topics)
+
+        all_raw_topics.extend(web_topics)
+
+        if not all_raw_topics:
+            self.logger.warning("No topics found from any source. Skipping.")
+            return
+
+        # 4. Load existing pool and deduplicate
         pool = self.state.load_json("research_pool.json")
         existing_items: list[dict[str, Any]] = pool.get("items", [])
 
         added = 0
-        for topic_item in new_topics:
+        for topic_item in all_raw_topics:
             if not self._is_duplicate(topic_item.get("topic", ""), existing_items):
                 existing_items.append(topic_item)
                 added += 1
@@ -87,13 +124,13 @@ class ResearcherAgent(BaseAgent):
         self.logger.info(
             "Added %d new topics (%d duplicates skipped).",
             added,
-            len(new_topics) - added,
+            len(all_raw_topics) - added,
         )
 
-        # 4. Cleanup old items
+        # 5. Cleanup old items
         existing_items = self._cleanup_old_items(existing_items)
 
-        # 5. Persist
+        # 6. Persist
         now_jst = datetime.datetime.now(JST)
         pool["last_updated"] = now_jst.isoformat()
         pool["items"] = existing_items
@@ -104,21 +141,221 @@ class ResearcherAgent(BaseAgent):
         )
 
     # ------------------------------------------------------------------
+    # Theme Tree coverage analysis
+    # ------------------------------------------------------------------
+
+    def _find_coverage_gaps(self) -> list[str]:
+        """Identify under-covered theme tree categories from post history.
+
+        Compares the distribution of published posts across categories to
+        the full theme tree, and returns categories that have fewer posts
+        than the fair share (below average coverage).
+
+        Returns:
+            List of category names that need more content.
+        """
+        try:
+            theme_tree = self._load_yaml("knowledge/theme_tree.yaml")
+        except FileNotFoundError:
+            return []
+
+        # Count leaf nodes per top-level category
+        category_leafs: dict[str, int] = {}
+        for cat_key, cat_val in theme_tree.items():
+            if isinstance(cat_val, dict):
+                leaves = 0
+                for subcat in cat_val.values():
+                    if isinstance(subcat, list):
+                        leaves += len(subcat)
+                    elif isinstance(subcat, dict):
+                        for v in subcat.values():
+                            leaves += len(v) if isinstance(v, list) else 1
+                category_leafs[cat_key] = max(leaves, 1)
+            elif isinstance(cat_val, list):
+                category_leafs[cat_key] = len(cat_val)
+
+        if not category_leafs:
+            return []
+
+        # Count posts per category in last 30 days
+        history = self.state.load_json("post_history.json")
+        posts = history.get("posts", [])
+        cutoff = datetime.datetime.now(JST) - datetime.timedelta(days=30)
+
+        post_counts: dict[str, int] = {cat: 0 for cat in category_leafs}
+        for post in posts:
+            try:
+                posted_at = datetime.datetime.fromisoformat(post.get("posted_at", ""))
+            except (ValueError, TypeError):
+                continue
+            if posted_at < cutoff:
+                continue
+            cat = post.get("category", "")
+            if cat in post_counts:
+                post_counts[cat] += 1
+
+        # Find categories below average coverage ratio
+        total_posts = sum(post_counts.values()) or 1
+        total_leafs = sum(category_leafs.values())
+
+        gaps: list[str] = []
+        for cat, leaf_count in category_leafs.items():
+            expected_share = leaf_count / total_leafs
+            actual_share = post_counts.get(cat, 0) / total_posts
+            if actual_share < expected_share * 0.6:
+                gaps.append(cat)
+
+        return gaps
+
+    # ------------------------------------------------------------------
+    # Web trend scraping
+    # ------------------------------------------------------------------
+
+    def _search_web_trends(self) -> list[dict[str, Any]]:
+        """Scrape web sources for trending skincare topics.
+
+        Uses httpx to fetch beauty media sites and extract headline topics.
+        Returns research-pool items ready for insertion.
+        """
+        import httpx
+
+        all_headlines: list[str] = []
+
+        for source in _WEB_SOURCES:
+            try:
+                resp = httpx.get(
+                    source["url"],
+                    timeout=15.0,
+                    follow_redirects=True,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (compatible; ThreadsBot/1.0)",
+                        "Accept-Language": "ja,en;q=0.5",
+                    },
+                )
+                if resp.status_code != 200:
+                    self.logger.debug(
+                        "Web source '%s' returned status %d", source["name"], resp.status_code
+                    )
+                    continue
+
+                headlines = self._extract_headlines(resp.text, source["name"])
+                all_headlines.extend(headlines)
+                self.logger.debug(
+                    "Extracted %d headlines from %s", len(headlines), source["name"]
+                )
+
+            except Exception as exc:
+                self.logger.debug("Web scrape failed for '%s': %s", source["name"], exc)
+                continue
+
+        if not all_headlines:
+            return []
+
+        # Use Claude to extract structured topics from headlines
+        return self._extract_web_topics(all_headlines)
+
+    @staticmethod
+    def _extract_headlines(html: str, source_name: str) -> list[str]:
+        """Extract article headlines from raw HTML.
+
+        Uses simple regex patterns to find title/heading text.
+        """
+        headlines: list[str] = []
+
+        # Common patterns for article titles in Japanese beauty sites
+        patterns = [
+            r'<h[1-3][^>]*>([^<]{10,80})</h[1-3]>',
+            r'<a[^>]*title="([^"]{10,80})"',
+            r'class="[^"]*title[^"]*"[^>]*>([^<]{10,80})<',
+        ]
+
+        for pattern in patterns:
+            matches = re.findall(pattern, html)
+            for match in matches:
+                text = re.sub(r'<[^>]+>', '', match).strip()
+                # Filter for skincare/beauty relevance
+                if any(kw in text for kw in [
+                    "スキンケア", "成分", "美容", "肌", "化粧", "保湿",
+                    "セラミド", "レチノール", "ビタミン", "日焼け", "紫外線",
+                    "毛穴", "ニキビ", "シミ", "シワ", "乾燥", "敏感肌",
+                ]):
+                    headlines.append(f"[{source_name}] {text}")
+
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        unique: list[str] = []
+        for h in headlines:
+            if h not in seen:
+                seen.add(h)
+                unique.append(h)
+
+        return unique[:15]  # Cap per source
+
+    def _extract_web_topics(self, headlines: list[str]) -> list[dict[str, Any]]:
+        """Use Claude to extract structured topics from web headlines."""
+        data_text = "\n".join(headlines)
+
+        season_data = self._load_season_matrix()
+        current_month = datetime.datetime.now(JST).month
+        month_cfg = season_data.get("months", {}).get(current_month, {})
+        season_hint = ""
+        if month_cfg:
+            season_hint = (
+                f"\n\n現在の季節: {month_cfg.get('season', '')} "
+                f"({month_cfg.get('theme', '')})"
+            )
+
+        prompt = (
+            "以下のWeb記事見出しから、Threadsのスキンケア投稿に使えるトレンドネタを抽出してください。"
+            "各ネタについて topic, summary, keywords, priority(1-10), category を返してください。"
+            "categoryは以下から選択: skincare_knowledge, skincare_ingredients, skincare_routine, beauty_trend, diet_tips"
+            f"{season_hint}\n"
+            "JSON配列で返してください。JSON配列のみを返し、それ以外のテキストは含めないでください。"
+        )
+
+        try:
+            raw_response = self.claude.analyze(prompt=prompt, data=data_text)
+            topics = self._parse_claude_response(raw_response)
+        except Exception as exc:
+            self.logger.warning("Web topic extraction via Claude failed: %s", exc)
+            return []
+
+        now_jst = datetime.datetime.now(JST)
+        date_str = now_jst.strftime("%Y%m%d")
+
+        result: list[dict[str, Any]] = []
+        for idx, t in enumerate(topics, start=1):
+            category = t.get("category", "beauty_trend")
+            if category not in _SEARCH_KEYWORDS:
+                category = "beauty_trend"
+
+            result.append({
+                "id": f"web_{date_str}_{idx:03d}",
+                "source": "web",
+                "source_url": "",
+                "topic": t.get("topic", ""),
+                "summary": t.get("summary", ""),
+                "keywords": t.get("keywords", []),
+                "category": category,
+                "collected_at": now_jst.isoformat(),
+                "used": False,
+                "priority": int(t.get("priority", 5)),
+            })
+
+        return result
+
+    # ------------------------------------------------------------------
     # YouTube search
     # ------------------------------------------------------------------
 
-    def _search_youtube(self) -> list[dict[str, Any]]:
+    def _search_youtube(
+        self,
+        priority_categories: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """Search YouTube Data API v3 for recent skincare / beauty videos.
 
-        Searches are performed per category using predefined keywords.
-        Seasonal keywords are added based on the current month via
-        ``knowledge/season_matrix.yaml``, and per-category allocations
-        are weighted according to seasonal relevance.
-
-        Returns:
-            List of dicts with keys: ``video_id``, ``title``,
-            ``description``, ``channel_title``, ``published_at``,
-            ``category``.
+        When *priority_categories* are specified (from theme tree gaps),
+        those categories receive a larger share of the search quota.
         """
         max_results_total: int = self.config.get("youtube_max_results", 20)
         categories: list[str] = self.config.get("categories", list(_SEARCH_KEYWORDS.keys()))
@@ -136,6 +373,15 @@ class ResearcherAgent(BaseAgent):
                 current_month,
                 month_config.get("theme", ""),
                 len(seasonal_keywords),
+            )
+
+        # Boost weights for under-covered categories
+        if priority_categories:
+            for cat in priority_categories:
+                category_weights[cat] = category_weights.get(cat, 1.0) * 1.5
+            self.logger.info(
+                "Boosted search weight for coverage-gap categories: %s",
+                priority_categories,
             )
 
         # Compute weighted per-category allocation
@@ -243,15 +489,12 @@ class ResearcherAgent(BaseAgent):
     # Topic extraction via Claude
     # ------------------------------------------------------------------
 
-    def _extract_topics(self, videos: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Use Claude to extract actionable Threads post topics from videos.
-
-        Args:
-            videos: List of video metadata dicts from :meth:`_search_youtube`.
-
-        Returns:
-            List of research-pool items ready for insertion.
-        """
+    def _extract_topics(
+        self,
+        videos: list[dict[str, Any]],
+        coverage_gaps: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Use Claude to extract actionable Threads post topics from videos."""
         # Build a textual summary of all videos grouped by category
         lines: list[str] = []
         for v in videos:
@@ -276,10 +519,18 @@ class ResearcherAgent(BaseAgent):
                 f"この季節に特に需要が高いテーマを優先してください。"
             )
 
+        # Add coverage gap hint
+        gap_hint = ""
+        if coverage_gaps:
+            gap_hint = (
+                f"\n\n以下のカテゴリのネタが不足しています。優先的に抽出してください: "
+                f"{', '.join(coverage_gaps)}"
+            )
+
         prompt = (
             "以下のYouTube動画の情報から、Threadsのスキンケア投稿に使えるネタを抽出してください。"
             "各ネタについて topic, summary, keywords, priority(1-10) を返してください。"
-            f"{season_hint}\n"
+            f"{season_hint}{gap_hint}\n"
             "JSON配列で返してください。\n"
             "例: [{\"topic\": \"...\", \"summary\": \"...\", \"keywords\": [\"...\"], \"priority\": 8}]\n"
             "JSON配列のみを返し、それ以外のテキストは含めないでください。"
@@ -290,22 +541,12 @@ class ResearcherAgent(BaseAgent):
         # Parse Claude response into structured data
         topics = self._parse_claude_response(raw_response)
 
-        # Build a lookup: category by video title substring
-        category_map: dict[str, str] = {}
-        url_map: dict[str, str] = {}
-        for v in videos:
-            # Use first 20 chars of title as a rough key
-            category_map[v["title"][:20]] = v["category"]
-            url_map[v["title"][:20]] = f"https://youtube.com/watch?v={v['video_id']}"
-
         now_jst = datetime.datetime.now(JST)
         date_str = now_jst.strftime("%Y%m%d")
 
         result: list[dict[str, Any]] = []
         for idx, t in enumerate(topics, start=1):
             item_id = f"res_{date_str}_{idx:03d}"
-
-            # Try to match category from extracted topic keywords
             matched_category = self._guess_category(t, videos)
 
             result.append(
@@ -330,20 +571,7 @@ class ResearcherAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     def _is_duplicate(self, topic: str, existing_items: list[dict[str, Any]]) -> bool:
-        """Check whether *topic* is a duplicate of any existing pool item.
-
-        Uses keyword overlap ratio for a lightweight comparison.  An item is
-        considered duplicate if:
-        - The topic string is an exact match, **or**
-        - 80 %+ of the words overlap with an existing topic.
-
-        Args:
-            topic: The candidate topic string.
-            existing_items: Current items in the research pool.
-
-        Returns:
-            ``True`` if a duplicate was detected.
-        """
+        """Check whether *topic* is a duplicate of any existing pool item."""
         if not topic:
             return True
 
@@ -354,7 +582,6 @@ class ResearcherAgent(BaseAgent):
         for item in existing_items:
             existing_topic = item.get("topic", "")
 
-            # Exact match
             if topic == existing_topic:
                 return True
 
@@ -362,7 +589,6 @@ class ResearcherAgent(BaseAgent):
             if not existing_words:
                 continue
 
-            # Keyword overlap ratio (Jaccard-like but using the smaller set)
             intersection = topic_words & existing_words
             smaller_len = min(len(topic_words), len(existing_words))
             if smaller_len == 0:
@@ -390,12 +616,6 @@ class ResearcherAgent(BaseAgent):
         Rules:
         - ``used=True`` **and** older than 7 days  -> remove.
         - ``used=False`` **and** older than 30 days -> remove.
-
-        Args:
-            items: Current pool items.
-
-        Returns:
-            Filtered list with stale items removed.
         """
         now = datetime.datetime.now(JST)
         kept: list[dict[str, Any]] = []
@@ -405,7 +625,6 @@ class ResearcherAgent(BaseAgent):
             try:
                 collected_at = datetime.datetime.fromisoformat(collected_str)
             except (ValueError, TypeError):
-                # Cannot parse — keep the item to be safe
                 kept.append(item)
                 continue
 
@@ -436,7 +655,7 @@ class ResearcherAgent(BaseAgent):
         try:
             return self._load_yaml("knowledge/season_matrix.yaml")
         except FileNotFoundError:
-            logger.warning("Season matrix not found for account '%s'", self.ctx.account_id)
+            logger.warning("Season matrix not found.")
             return {}
 
     @staticmethod
@@ -460,35 +679,19 @@ class ResearcherAgent(BaseAgent):
 
     @staticmethod
     def _tokenize(text: str) -> list[str]:
-        """Naively tokenize Japanese / mixed text into words.
-
-        Splits on whitespace and common punctuation, filtering out very
-        short tokens.  This is intentionally simple — a production system
-        would use MeCab or similar.
-        """
+        """Naively tokenize Japanese / mixed text into words."""
         tokens = re.split(r"[\s、。・,.\-/()（）「」【】\[\]]+", text)
         return [t for t in tokens if len(t) >= 2]
 
     @staticmethod
     def _parse_claude_response(raw: str) -> list[dict[str, Any]]:
-        """Extract a JSON array from Claude's response text.
-
-        Handles cases where the response is wrapped in markdown fences.
-
-        Args:
-            raw: Raw text from :meth:`ClaudeClient.analyze`.
-
-        Returns:
-            Parsed list of topic dicts.  Returns ``[]`` on failure.
-        """
+        """Extract a JSON array from Claude's response text."""
         text = raw.strip()
 
-        # Strip markdown code fences if present
         if text.startswith("```"):
             text = re.sub(r"^```(?:json)?\s*", "", text)
             text = re.sub(r"\s*```$", "", text)
 
-        # Find the JSON array
         start = text.find("[")
         end = text.rfind("]")
         if start == -1 or end == -1 or end <= start:
@@ -508,22 +711,12 @@ class ResearcherAgent(BaseAgent):
     def _guess_category(
         topic_item: dict[str, Any], videos: list[dict[str, Any]]
     ) -> str:
-        """Best-effort category assignment for an extracted topic.
-
-        Compares the topic's keywords against each video's title to find
-        the most likely source category.  Falls back to
-        ``"skincare_knowledge"`` when no match is found.
-        """
-        topic_text = (
-            topic_item.get("topic", "") + " " + " ".join(topic_item.get("keywords", []))
-        ).lower()
-
+        """Best-effort category assignment for an extracted topic."""
         best_category = "skincare_knowledge"
         best_score = 0
 
         for v in videos:
             title_lower = v["title"].lower()
-            # Count how many topic keywords appear in the video title
             score = sum(1 for kw in topic_item.get("keywords", []) if kw.lower() in title_lower)
             if score > best_score:
                 best_score = score
@@ -535,11 +728,7 @@ class ResearcherAgent(BaseAgent):
     def _guess_source_url(
         topic_item: dict[str, Any], videos: list[dict[str, Any]]
     ) -> str:
-        """Best-effort source URL assignment for an extracted topic.
-
-        Uses a keyword-matching heuristic similar to
-        :meth:`_guess_category`.  Falls back to the first video's URL.
-        """
+        """Best-effort source URL assignment for an extracted topic."""
         best_url = (
             f"https://youtube.com/watch?v={videos[0]['video_id']}" if videos else ""
         )
