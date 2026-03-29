@@ -1,0 +1,45 @@
+# ============================================================
+# ジャンル定義
+# ★ 必ずカスタマイズしてください
+# ============================================================
+
+genre: "あなたのジャンル名"
+focus: "あなたのフォーカスポイント"
+platform: "Threads"
+
+concept:
+  mission: "読者が達成できること"
+  approach: "どのようなアプローチで"
+  stance: "どのようなスタンスで"
+  differentiation: "他との差別化ポイント"
+
+categories:
+  - id: category_1
+    name: "カテゴリ1"
+    description: "説明"
+    priority: high
+  - id: category_2
+    name: "カテゴリ2"
+    description: "説明"
+    priority: medium
+
+content_ratio:
+  拡散系: 60
+  保存系: 40
+
+monetization:
+  model: "アフィリエイト"
+  flow: "投稿→CTA→プロフリンク→LP→購入"
+  cta_rule: "CTA付き投稿には「※PRリンクあり」表記を付与"
+
+avoid_topics:
+  - "特定ブランド・製品の推奨/批判"
+  - "医療行為に関するアドバイス"
+  - "政治・宗教・ジェンダー等のセンシティブな話題"
+
+legal_constraints:
+  primary_law: "該当する法令名"
+  secondary_laws:
+    - "景品表示法"
+    - "ステマ規制"
+  note: "ジャンル固有の法的注意事項"

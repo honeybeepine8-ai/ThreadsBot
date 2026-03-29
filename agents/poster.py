@@ -27,8 +27,8 @@ class PosterAgent(BaseAgent):
     self-reply with that text immediately after the main post.
     """
 
-    def __init__(self) -> None:
-        super().__init__("poster")
+    def __init__(self, ctx=None) -> None:
+        super().__init__("poster", ctx=ctx)
         self.threads = ThreadsAPIClient()
         self.notifier = Notifier()
 

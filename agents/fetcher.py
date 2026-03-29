@@ -56,16 +56,14 @@ class FetcherAgent(BaseAgent):
     driven by ``config/affiliate_products.yaml``.
     """
 
-    def __init__(self) -> None:
-        super().__init__("fetcher")
+    def __init__(self, ctx=None) -> None:
+        super().__init__("fetcher", ctx=ctx)
         self.threads = ThreadsAPIClient()
         self.claude_client = ClaudeClient()
         self.notifier = Notifier()
 
-        # Load affiliate config
-        config_path = _PROJECT_ROOT / "config" / "settings.yaml"
-        with open(config_path, encoding="utf-8") as f:
-            settings = yaml.safe_load(f)
+        # Load affiliate config (account-aware)
+        settings = self._load_yaml("config/settings.yaml")
 
         aff_cfg: dict[str, Any] = settings.get("affiliate", {})
         self.affiliate_mode: str = aff_cfg.get("mode", "retroactive")
@@ -441,7 +439,14 @@ class FetcherAgent(BaseAgent):
         if self._product_catalog is not None:
             return self._product_catalog
 
-        catalog_path = _PROJECT_ROOT / "config" / "affiliate_products.yaml"
+        try:
+            catalog_path = self._resolve_path("config/affiliate_products.yaml")
+        except FileNotFoundError:
+            self.logger.warning("Product catalog not found for account '%s'", self.ctx.account_id)
+            self._product_catalog = []
+            self._matching_cfg = {}
+            return []
+
         try:
             with open(catalog_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
@@ -544,7 +549,7 @@ class FetcherAgent(BaseAgent):
         """
         import json as _json
 
-        hook_path = _PROJECT_ROOT / "knowledge" / "hook_stock.json"
+        hook_path = self.ctx.knowledge_dir / "hook_stock.json"
 
         try:
             with open(hook_path, "r", encoding="utf-8") as f:
@@ -636,8 +641,9 @@ class FetcherAgent(BaseAgent):
         Existing entries for the same ``post_id`` are replaced; new entries are
         appended.
         """
-        _ANALYTICS_DIR.mkdir(parents=True, exist_ok=True)
-        perf_path = _ANALYTICS_DIR / "performance.json"
+        analytics_dir = self.ctx.analytics_dir
+        analytics_dir.mkdir(parents=True, exist_ok=True)
+        perf_path = analytics_dir / "performance.json"
 
         # Load existing performance data
         import json
@@ -678,7 +684,7 @@ class FetcherAgent(BaseAgent):
         import tempfile
 
         fd, tmp_path = tempfile.mkstemp(
-            dir=str(_ANALYTICS_DIR), suffix=".tmp", prefix="performance.json"
+            dir=str(analytics_dir), suffix=".tmp", prefix="performance.json"
         )
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:

@@ -42,8 +42,8 @@ class ReplierAgent(BaseAgent):
     - Runs NG-word check on every generated reply
     """
 
-    def __init__(self) -> None:
-        super().__init__("replier")
+    def __init__(self, ctx=None) -> None:
+        super().__init__("replier", ctx=ctx)
         self.threads = ThreadsAPIClient()
         self.claude_client = ClaudeClient()
         self.quality_gate = QualityGate()
@@ -728,18 +728,4 @@ class ReplierAgent(BaseAgent):
             self.logger.error("Outbound reply generation failed: %s", exc)
             return None
 
-    @staticmethod
-    def _load_yaml(relative_path: str) -> dict[str, Any]:
-        """Load a YAML file relative to the project root."""
-        import yaml
-
-        full_path = _PROJECT_ROOT / relative_path
-        with open(full_path, encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-
-    @staticmethod
-    def _load_text(relative_path: str) -> str:
-        """Load a text file relative to the project root."""
-        full_path = _PROJECT_ROOT / relative_path
-        with open(full_path, encoding="utf-8") as f:
-            return f.read()
+    # _load_yaml / _load_text are inherited from BaseAgent (account-aware)

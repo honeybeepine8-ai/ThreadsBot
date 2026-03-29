@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from abc import ABC, abstractmethod
+from typing import Any
 
+from core.account_context import AccountContext
 from core.logger import get_logger
-from core.state_manager import StateManager
 from core.safety import SafetyGuard
 from services.threads_api import RateLimitError, AuthenticationError
 
@@ -17,16 +19,37 @@ class BaseAgent(ABC):
     Subclasses must implement :meth:`execute`.  The :meth:`run` method wraps
     ``execute()`` with emergency-stop checks, circuit-breaker checks, and
     automatic retry with exponential back-off.
+
+    An optional :class:`AccountContext` can be passed to resolve all file
+    paths and state directories per-account.  When omitted, the default
+    account (project root) is used for full backward compatibility.
     """
 
     MAX_RETRIES: int = 3
     RETRY_DELAYS: list[int] = [30, 120, 300]  # seconds
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, ctx: AccountContext | None = None) -> None:
         self.name = name
         self.logger = get_logger(name)
-        self.state = StateManager()
+        self.ctx = ctx or AccountContext("default")
+        self.state = self.ctx.get_state_manager()
         self.safety = SafetyGuard(self.state)
+
+    # ------------------------------------------------------------------
+    # File I/O helpers (delegates to AccountContext)
+    # ------------------------------------------------------------------
+
+    def _resolve_path(self, relative_path: str) -> Path:
+        """Resolve a file path via the account context (account-first, project fallback)."""
+        return self.ctx.resolve_path(relative_path)
+
+    def _load_yaml(self, relative_path: str) -> dict[str, Any]:
+        """Load a YAML file via the account context."""
+        return self.ctx.load_yaml(relative_path)
+
+    def _load_text(self, relative_path: str) -> str:
+        """Load a text file via the account context."""
+        return self.ctx.load_text(relative_path)
 
     # ------------------------------------------------------------------
     # Public entry point

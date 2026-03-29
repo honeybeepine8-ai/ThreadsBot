@@ -1,0 +1,38 @@
+# ============================================================
+# アカウント固有の設定オーバーライド
+# ============================================================
+# システム設定 (app, claude, threads_api, notifications) は
+# プロジ���クトルートの settings.yaml から自動継承されます。
+# ここにはアカウント固有のオーバーライドのみ記述してください。
+
+# --- 安全装置 ---
+safety:
+  max_daily_posts: 6
+  min_post_interval_minutes: 90
+  active_hours:
+    start: 7
+    end: 23
+
+# --- リサーチャー ---
+researcher:
+  categories:
+    - "your_category_1"
+    - "your_category_2"
+
+# --- ライター ---
+writer:
+  queue_target_size: 6
+  profile_cta_rate: 0.35
+  thread_ratio: 0.40
+
+# --- アフィリエイト ---
+affiliate:
+  mode: "retroactive"
+  buzz_views_threshold: 500
+  buzz_engagement_threshold: 0.05
+
+# --- 初期ブーストモード ---
+boost_mode:
+  enabled: false
+  start_date: "2026-01-01"
+  duration_days: 14

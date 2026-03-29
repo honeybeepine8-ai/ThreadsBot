@@ -44,8 +44,8 @@ class ResearcherAgent(BaseAgent):
     5. Clean up stale items.
     """
 
-    def __init__(self) -> None:
-        super().__init__("researcher")
+    def __init__(self, ctx=None) -> None:
+        super().__init__("researcher", ctx=ctx)
         self.claude = ClaudeClient()
         self.youtube = build(
             "youtube",
@@ -431,14 +431,12 @@ class ResearcherAgent(BaseAgent):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _load_season_matrix() -> dict[str, Any]:
+    def _load_season_matrix(self) -> dict[str, Any]:
         """Load the seasonal matrix from knowledge/season_matrix.yaml."""
         try:
-            with open(_SEASON_MATRIX_PATH, encoding="utf-8") as f:
-                return yaml.safe_load(f) or {}
+            return self._load_yaml("knowledge/season_matrix.yaml")
         except FileNotFoundError:
-            logger.warning("Season matrix not found: %s", _SEASON_MATRIX_PATH)
+            logger.warning("Season matrix not found for account '%s'", self.ctx.account_id)
             return {}
 
     @staticmethod
@@ -455,11 +453,9 @@ class ResearcherAgent(BaseAgent):
             return "diet_tips"
         return "skincare_knowledge"
 
-    @staticmethod
-    def _load_researcher_config() -> dict[str, Any]:
+    def _load_researcher_config(self) -> dict[str, Any]:
         """Load the ``researcher`` section from *settings.yaml*."""
-        with open(_CONFIG_PATH, encoding="utf-8") as f:
-            cfg = yaml.safe_load(f)
+        cfg = self._load_yaml("config/settings.yaml")
         return cfg.get("researcher", {})
 
     @staticmethod

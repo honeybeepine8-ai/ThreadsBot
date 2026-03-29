@@ -1,0 +1,17 @@
+# ============================================================
+# アフィリエイト商品カタログ
+# ============================================================
+# バズ投稿にアフィリコメントを追加する際の商品選定に使用
+
+products: []
+  # - id: "product_001"
+  #   name: "商品名"
+  #   category: "your_category"
+  #   tier: "high"           # high / medium / low
+  #   priority: 1
+  #   keywords:
+  #     - "関連キーワード1"
+  #     - "関連キーワード2"
+  #   affiliate_url: "https://example.com/affiliate/xxx"
+  #   comment_template: "おすすめ商品の紹介テンプレート ※PR"
+  #   weekly_limit: 3

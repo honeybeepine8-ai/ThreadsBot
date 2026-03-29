@@ -1,0 +1,18 @@
+# ============================================================
+# 議論テーマホワイトリスト
+# ============================================================
+# Writer が「議論系」投稿を生成する際に参照する安全なテーマ一覧
+
+debate_injection_rate: 0.4
+min_days_between_same_debate: 7
+
+debates: []
+  # - id: "debate_001"
+  #   title: "議論テーマ名"
+  #   safety_level: "green"      # green / yellow
+  #   stance: "balanced"          # balanced / lean_positive / lean_negative
+  #   talking_points:
+  #     - "ポイント1"
+  #     - "ポイント2"
+  #   ng_statements:
+  #     - "言ってはいけない表現"
