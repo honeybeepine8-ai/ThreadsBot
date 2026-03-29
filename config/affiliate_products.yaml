@@ -1,0 +1,92 @@
+# ============================================================
+# アフィリエイト商品カタログ
+# Fetcher（後乗せ）/ Replier（プロフ誘導CTA）が参照
+# ============================================================
+
+# --- ASP設定 ---
+asp_accounts:
+  - name: "A8.net"
+    tracking_param: "a8mat"
+  - name: "afb"
+    tracking_param: "afb_id"
+
+# --- 商品カタログ ---
+# category: theme_tree.yaml のカテゴリと対応
+# tier: high(報酬2,000円+) / medium(500-2,000円) / low(~500円)
+# priority: 同一カテゴリ内の優先順位（高い方を優先推薦）
+products:
+  - id: "aff_001"
+    name: "セラミド化粧水A"
+    display_hint: "セラミドNP配合の化粧水"
+    category: "skincare_ingredients"
+    sub_category: "保湿成分"
+    keywords: ["セラミド", "乾燥肌", "バリア機能", "保湿"]
+    tier: "high"
+    commission_yen: 3500
+    asp: "A8.net"
+    lp_url_env_key: "AFF_CERAMIDE_LP"
+    priority: 10
+    active: true
+
+  - id: "aff_002"
+    name: "レチノール美容液B"
+    display_hint: "純粋レチノール配合の美容液"
+    category: "skincare_ingredients"
+    sub_category: "エイジングケア成分"
+    keywords: ["レチノール", "エイジングケア", "シワ", "A反応"]
+    tier: "high"
+    commission_yen: 4200
+    asp: "afb"
+    lp_url_env_key: "AFF_RETINOL_LP"
+    priority: 9
+    active: true
+
+  - id: "aff_003"
+    name: "ナイアシンアミド美容液C"
+    display_hint: "高濃度ナイアシンアミド美容液"
+    category: "skincare_ingredients"
+    sub_category: "美白・ブライトニング成分"
+    keywords: ["ナイアシンアミド", "美白", "毛穴", "皮脂"]
+    tier: "medium"
+    commission_yen: 1800
+    asp: "A8.net"
+    lp_url_env_key: "AFF_NIACINAMIDE_LP"
+    priority: 8
+    active: true
+
+  - id: "aff_004"
+    name: "シカクリームD"
+    display_hint: "ツボクサエキス配合のシカクリーム"
+    category: "skincare_ingredients"
+    sub_category: "肌荒れ・鎮静成分"
+    keywords: ["シカ", "ツボクサ", "肌荒れ", "敏感肌", "鎮静"]
+    tier: "medium"
+    commission_yen: 1500
+    asp: "afb"
+    lp_url_env_key: "AFF_CICA_LP"
+    priority: 7
+    active: true
+
+  - id: "aff_005"
+    name: "ビタミンC美容液E"
+    display_hint: "高浸透型ビタミンC誘導体美容液"
+    category: "skincare_ingredients"
+    sub_category: "美白・ブライトニング成分"
+    keywords: ["ビタミンC", "VC誘導体", "APPS", "美白", "くすみ"]
+    tier: "high"
+    commission_yen: 3000
+    asp: "A8.net"
+    lp_url_env_key: "AFF_VITAMINC_LP"
+    priority: 8
+    active: true
+
+# --- マッチングルール ---
+matching:
+  min_keyword_overlap: 1
+  prefer_tier: "high"
+  max_same_product_per_week: 3
+
+# --- PRコメント生成ガイド ---
+pr_comment_guide:
+  max_length: 120
+  min_length: 30

@@ -1,0 +1,173 @@
+# ============================================================
+# 季節 × 悩みマトリクス
+# Researcherが参照し、月に応じた検索キーワード・カテゴリ重み付けを適用
+# ============================================================
+
+months:
+  1:   # 1月
+    season: "冬"
+    theme: "乾燥対策・保湿強化"
+    extra_keywords:
+      - "冬 乾燥 スキンケア"
+      - "保湿 クリーム おすすめ"
+      - "セラミド 乾燥肌"
+    category_weights:
+      skincare_knowledge: 1.0
+      skincare_ingredients: 1.5
+      skincare_routine: 1.3
+      beauty_trend: 0.8
+      diet_tips: 0.7
+
+  2:   # 2月
+    season: "冬"
+    theme: "花粉前の肌バリア強化"
+    extra_keywords:
+      - "花粉 肌荒れ 対策"
+      - "バリア機能 強化"
+      - "敏感肌 スキンケア 春"
+    category_weights:
+      skincare_knowledge: 1.2
+      skincare_ingredients: 1.5
+      skincare_routine: 1.0
+      beauty_trend: 1.0
+      diet_tips: 0.8
+
+  3:   # 3月
+    season: "春"
+    theme: "花粉・揺らぎ肌対策"
+    extra_keywords:
+      - "花粉 スキンケア"
+      - "揺らぎ肌 対策"
+      - "春 スキンケア 切り替え"
+    category_weights:
+      skincare_knowledge: 1.2
+      skincare_ingredients: 1.3
+      skincare_routine: 1.2
+      beauty_trend: 1.0
+      diet_tips: 0.8
+
+  4:   # 4月
+    season: "春"
+    theme: "紫外線対策の開始・新生活スキンケア"
+    extra_keywords:
+      - "紫外線 対策 春"
+      - "日焼け止め 選び方"
+      - "新生活 スキンケア 基本"
+    category_weights:
+      skincare_knowledge: 1.0
+      skincare_ingredients: 1.0
+      skincare_routine: 1.5
+      beauty_trend: 1.2
+      diet_tips: 0.8
+
+  5:   # 5月
+    season: "春〜初夏"
+    theme: "UV本格化・皮脂対策開始"
+    extra_keywords:
+      - "UV対策 5月"
+      - "皮脂 テカリ 対策"
+      - "日焼け止め 塗り直し"
+    category_weights:
+      skincare_knowledge: 1.0
+      skincare_ingredients: 1.2
+      skincare_routine: 1.0
+      beauty_trend: 1.2
+      diet_tips: 1.0
+
+  6:   # 6月
+    season: "梅雨"
+    theme: "湿気・毛穴・ベタつき対策"
+    extra_keywords:
+      - "梅雨 スキンケア"
+      - "毛穴 ケア 梅雨"
+      - "インナードライ 対策"
+    category_weights:
+      skincare_knowledge: 1.0
+      skincare_ingredients: 1.3
+      skincare_routine: 1.2
+      beauty_trend: 1.0
+      diet_tips: 0.8
+
+  7:   # 7月
+    season: "夏"
+    theme: "UV・汗・毛穴ケア"
+    extra_keywords:
+      - "夏 スキンケア"
+      - "UV ケア 夏"
+      - "ビタミンC 美白"
+    category_weights:
+      skincare_knowledge: 1.0
+      skincare_ingredients: 1.5
+      skincare_routine: 1.0
+      beauty_trend: 1.2
+      diet_tips: 1.2
+
+  8:   # 8月
+    season: "夏"
+    theme: "夏ダメージ回復・秋の準備"
+    extra_keywords:
+      - "日焼け アフターケア"
+      - "夏 肌 ダメージ 回復"
+      - "美白 ケア"
+    category_weights:
+      skincare_knowledge: 1.0
+      skincare_ingredients: 1.5
+      skincare_routine: 1.0
+      beauty_trend: 1.0
+      diet_tips: 1.2
+
+  9:   # 9月
+    season: "秋"
+    theme: "夏のダメージケア・保湿切り替え"
+    extra_keywords:
+      - "秋 スキンケア 切り替え"
+      - "夏ダメージ 修復"
+      - "保湿 強化 秋"
+    category_weights:
+      skincare_knowledge: 1.0
+      skincare_ingredients: 1.3
+      skincare_routine: 1.3
+      beauty_trend: 1.0
+      diet_tips: 0.8
+
+  10:  # 10月
+    season: "秋"
+    theme: "乾燥対策の準備・エイジングケア"
+    extra_keywords:
+      - "秋 乾燥 対策"
+      - "エイジングケア 秋"
+      - "保湿 クリーム 切り替え"
+    category_weights:
+      skincare_knowledge: 1.0
+      skincare_ingredients: 1.3
+      skincare_routine: 1.2
+      beauty_trend: 1.0
+      diet_tips: 0.8
+
+  11:  # 11月
+    season: "秋〜冬"
+    theme: "本格乾燥対策・ベストコスメ"
+    extra_keywords:
+      - "乾燥 スキンケア 冬"
+      - "ベストコスメ 2026"
+      - "保湿 セラミド"
+    category_weights:
+      skincare_knowledge: 1.0
+      skincare_ingredients: 1.5
+      skincare_routine: 1.2
+      beauty_trend: 1.5
+      diet_tips: 0.7
+
+  12:  # 12月
+    season: "冬"
+    theme: "年末ケア・乾燥MAX対策"
+    extra_keywords:
+      - "冬 保湿 最強"
+      - "年末 スキンケア まとめ"
+      - "乾燥 かゆみ 対策"
+    category_weights:
+      skincare_knowledge: 1.0
+      skincare_ingredients: 1.5
+      skincare_routine: 1.3
+      beauty_trend: 1.5
+      diet_tips: 0.7

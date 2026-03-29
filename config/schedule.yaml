@@ -1,0 +1,85 @@
+# ============================================================
+# 投稿スケジュール設定
+# ============================================================
+# Buffer社250万投稿分析 + 日本市場補正に基づく
+
+# --- 曜日別の投稿数 ---
+daily_post_count:
+  monday: 3
+  tuesday: 3
+  wednesday: 4        # 週で最もエンゲージメントが高い
+  thursday: 4         # 9時台が全スロット中最強
+  friday: 3           # 14時以降は急落するため午前集中
+  saturday: 2         # 週で最もエンゲージメントが低い
+  sunday: 2
+
+# --- 投稿タイムスロット（JST） ---
+# 各スロットに推奨する投稿タイプを定義
+time_slots:
+  morning:
+    base_time: "07:30"
+    jitter_minutes: 20       # ±20分のランダム揺らぎ
+    recommended_patterns:
+      - "短文完結型"
+      - "あるある共感型"
+      - "数字インパクト型"
+    content_theme: "朝の軽い豆知識・1Tipsスキンケア"
+    description: "通勤中のSNSチェックタイム"
+
+  lunch:
+    base_time: "12:15"
+    jitter_minutes: 15
+    recommended_patterns:
+      - "リスト系"
+      - "まとめ・結論先出型"
+      - "反常識型"
+      - "実体験レビュー型"
+    content_theme: "読み応えのある成分解説・ランキング・比較"
+    description: "ランチ休憩＝最強スロット（エンゲージ率+15%）"
+    prefer_affiliate: true   # アフィリエイトコメントはこのスロットに配置
+
+  evening:
+    base_time: "20:00"
+    jitter_minutes: 30
+    recommended_patterns:
+      - "コメント誘導型"
+      - "二択・比較型"
+      - "ビフォーアフター型"
+      - "ストーリー型"
+    content_theme: "共感系・体験談・コメント誘導"
+    description: "帰宅後のリラックスタイム"
+
+  night:
+    base_time: "21:30"
+    jitter_minutes: 30
+    recommended_patterns:
+      - "暴露・裏話系"
+      - "あるある共感型"
+      - "短文完結型"
+    content_theme: "軽めの共感・モチベ系"
+    description: "就寝前（水木のみ使用）"
+    days_only:
+      - "wednesday"
+      - "thursday"
+
+# --- 低活動日（週1回） ---
+# bot検知回避のため、週1回は投稿数を落とす
+rest_day:
+  day: "saturday"
+  max_posts: 2
+
+# --- 投稿禁止時間帯 ---
+blackout_hours:
+  start: 23
+  end: 7
+
+# --- 曜日別エンゲージメント参考値（Buffer調査） ---
+# 投稿配分の根拠
+day_engagement_rank:
+  wednesday: 1    # 最高
+  thursday: 2
+  tuesday: 3
+  friday: 4
+  monday: 5
+  sunday: 6
+  saturday: 7    # 最低

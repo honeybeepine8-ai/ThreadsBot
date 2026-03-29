@@ -1,0 +1,174 @@
+# ============================================================
+# ThreadsBot グローバル設定
+# ============================================================
+
+app:
+  name: "ThreadsBot"
+  timezone: "Asia/Tokyo"
+  version: "0.1.0"
+
+# --- 安全装置 ---
+safety:
+  max_daily_posts: 6                  # V2: 10→6に削減
+  min_post_interval_minutes: 90      # 最小投稿間隔（分）
+  interval_jitter_minutes: 45        # ±ランダム揺らぎ（分）
+  min_quality_score: 7.5              # posting_rules.md と統一（V2基準）
+  max_similarity_score: 0.85
+  max_hook_similarity_score: 0.45    # 1行目の類似度閾値（短文TF-IDFではスコアが低めに出る）
+  similarity_compare_count: 100      # 類似度チェック対象の直近投稿数（V2で50→100に拡大）
+  max_consecutive_errors: 3          # 連続エラーでCircuit Breaker発動
+  circuit_breaker_cooldown_minutes: 30
+  active_hours:
+    start: 7                         # 投稿開始時刻（時）
+    end: 23                          # 投稿停止時刻（時）
+
+# --- Threads API ---
+threads_api:
+  base_url: "https://graph.threads.net/v1.0"
+  media_container_wait_seconds: 30
+  max_text_length: 500
+  max_hashtags: 1
+  rate_limit_per_day: 250            # Meta公式上限
+
+# --- Claude API ---
+claude:
+  writer_model: "claude-sonnet-4-20250514"
+  evaluator_model: "claude-haiku-4-5-20251001"
+  researcher_model: "claude-sonnet-4-20250514"
+  analyst_model: "claude-sonnet-4-20250514"
+  max_tokens_write: 600
+  max_tokens_evaluate: 200
+
+# --- リサーチャー ---
+researcher:
+  youtube_max_results: 20
+  run_interval_hours: 4
+  categories:
+    - "skincare_knowledge"
+    - "skincare_ingredients"
+    - "skincare_routine"
+    - "beauty_trend"
+    - "diet_tips"
+
+# --- ライター ---
+writer:
+  max_generation_attempts: 3         # 品質/類似度で棄却時の再生成上限（5→3に削減）
+  queue_target_size: 6              # 日次上限6件に合わせる
+  recent_pattern_block: 3            # 直近N件と同じパターンは使えない
+  min_char_count: 40
+  max_char_count: 500
+  pr_ratio: 0.0                      # 旧方式: 無効化（後乗せ方式に移行）
+  profile_cta_rate: 0.35              # 投稿の35%にプロフ誘導CTA追加
+  thread_ratio: 0.40                  # 投稿の40%をスレッド形式（ツリー展開型）にする
+  thread_min_posts: 2                 # スレッドの最小ポスト数
+  thread_max_posts: 3                 # スレッドの最大ポスト数
+  # --- 質問募集サイクル ---
+  qa_solicitation:
+    schedule_days:                     # 質問募集投稿を行う曜日
+      - "tuesday"
+      - "friday"
+  # --- フック文A/Bテスト ---
+  hook_ab_test:
+    enabled: false                     # 初期フェーズでは無効化（CLI呼び出し削減）
+    candidates_count: 3                # フック文候補の生成数
+
+# --- アフィリエイト（後乗せ方式） ---
+affiliate:
+  mode: "retroactive"                 # "retroactive"=バズ後追い方式
+  buzz_views_threshold: 500           # バズ判定: 最低views数
+  buzz_engagement_threshold: 0.05     # バズ判定: エンゲージメント率5%以上
+  max_affiliate_per_day: 5            # 日次アフィリコメント上限
+  cooldown_hours: 6                   # 同一投稿への重複追加防止
+
+# --- ポスター ---
+poster:
+  run_interval_hours: 1
+
+# --- フェッチャー ---
+fetcher:
+  run_interval_hours: 6
+  min_hours_after_post: 6            # 投稿後N時間経過してからメトリクス取得（6h/24hの2段階計測）
+
+# --- アナリスト ---
+analyst:
+  run_cron: "05:00"                  # 毎日5:00に実行
+  min_posts_for_analysis: 10         # 分析に必要な最小投稿数
+
+# --- リプライヤー ---
+replier:
+  run_interval_minutes: 30
+  reply_rate: 0.65               # コメントの65%に返信（残りはスキップ）
+  min_reply_delay_seconds: 300   # 返信まで最短5分待つ
+  max_reply_delay_seconds: 7200  # 返信まで最長2時間
+  max_replies_per_run: 5         # 1実行あたり最大返信数
+  max_daily_replies: 20          # 日次返信上限
+  profile_cta_rate: 0.3          # 返信の30%にプロフ誘導CTA付与
+  scan_hours: 48                 # 直近48時間の投稿をスキャン
+  skip_own_replies: true         # 自分のアフィリコメントはスキップ
+  max_replies_per_user_per_day: 2  # 同一ユーザーへの日次返信上限
+  # --- 質問検出 ---
+  question_detection:
+    enabled: true                    # 質問検出の有効/無効
+    max_questions_per_run: 5         # 1回の実行で追加する最大質問数
+    min_question_length: 10          # 質問として検出する最小文字数
+  # --- アウトバウンドリプライ (4-3) ---
+  outbound:
+    enabled: false                   # 有効化は手動で（Phase 4）
+    max_per_run: 2                   # 1実行あたり最大アウトバウンド数
+    max_daily: 5                     # 日次上限
+    profile_cta_rate: 0.2            # アウトバウンドのCTA率（控えめ）
+
+# --- スーパーバイザー ---
+supervisor:
+  run_interval_minutes: 15
+  follower_drop_threshold: 0.05      # フォロワー急減の閾値（5%）
+
+# --- 初期ブーストモード ---
+# 0→1000フォロワー到達を加速するための特別モード
+boost_mode:
+  enabled: false                      # 開始時にtrueにする
+  start_date: "2026-04-01"           # ブースト開始日（YYYY-MM-DD）
+  duration_days: 14                   # ブースト期間（日数）
+  overrides:
+    safety:
+      max_daily_posts: 15             # 通常10→15
+      min_post_interval_minutes: 60   # 通常90→60
+    writer:
+      pr_ratio: 0.0                   # アフィリ完全停止（信頼構築期間）
+      profile_cta_rate: 0.0           # CTAも停止
+    schedule:
+      daily_post_count:
+        monday: 4
+        tuesday: 4
+        wednesday: 5
+        thursday: 5
+        friday: 4
+        saturday: 3
+        sunday: 3
+    content:
+      viral_pattern_boost: 0.7        # バイラル系パターンの選択率
+      viral_patterns:
+        - "コメント誘導型"
+        - "あるある共感型"
+        - "二択・比較型"
+        - "暴露・裏話系"
+        - "反常識型"
+        - "需要確認型"
+
+# --- 通知 ---
+notifications:
+  enabled: true
+  channel: "telegram"                  # "telegram" or "slack"
+  # Telegram: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID は .env に記載
+  # Slack: SLACK_WEBHOOK_URL は .env に記載
+  dedup_window_minutes: 30             # 同一イベントの重複抑制ウィンドウ
+  alert_on:
+    - "draft_ready"                    # 下書き生成完了（低）
+    - "circuit_breaker"                # Circuit Breaker発動（高）
+    - "emergency_stop"                 # kill_switch発動（最高）
+    - "compliance_risk"                # コンプラリスクコメント検知（高）
+    - "token_expiry_warning"           # トークン期限7日前（高）
+    - "research_pool_stale"            # research_pool 24h未更新（中）
+    - "daily_report"                   # 日次KPIレポート（低）
+    - "buzz_detected"                  # バズ検知（中）
+    - "diversity_alert"                # カテゴリエントロピー低下（中）

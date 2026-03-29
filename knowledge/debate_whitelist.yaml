@@ -1,0 +1,171 @@
+# ============================================================
+# 論争テーマ ホワイトリスト
+# Writer（反常識型・コメント誘導型）、Researcher が参照
+# ホワイトリスト外の論争テーマは投稿禁止
+# ============================================================
+
+# safety_level:
+#   green  = 完全に安全。どう転んでも炎上しない
+#   yellow = 表現に注意が必要。ng_statements を厳守すること
+#
+# recommended_patterns: このテーマに適した投稿パターン
+# stance: アカウントとしての立場
+# talking_points: 使える論点
+# ng_statements: 絶対に言ってはいけない表現
+
+debates:
+  # ====== 成分論争（green） ======
+  - id: "debate_001"
+    title: "無添加は本当に安全か？"
+    safety_level: "green"
+    category: "skincare_knowledge"
+    keywords: ["無添加", "添加物", "防腐剤", "パラベン"]
+    recommended_patterns: ["反常識型", "コメント誘導型"]
+    stance: >
+      「無添加」に法的定義はない。大事なのは何が無添加なのかを確認すること。
+      パラベン無添加でも別の防腐剤は入っている。成分表を読む習慣が大事。
+    talking_points:
+      - "「無添加」の法的定義がない事実"
+      - "パラベン無添加 ≠ 防腐剤ゼロ"
+      - "防腐剤がないと微生物リスクがある"
+      - "フェノキシエタノール vs パラベンの比較"
+    ng_statements:
+      - "無添加を選ぶ人はバカ"
+      - "パラベンは完全に安全"
+      - "○○メーカーの無添加は嘘"
+
+  - id: "debate_002"
+    title: "高い化粧品 vs 安い化粧品"
+    safety_level: "green"
+    category: "skincare_knowledge"
+    keywords: ["プチプラ", "デパコス", "価格", "コスパ"]
+    recommended_patterns: ["二択・比較型", "コメント誘導型", "反常識型"]
+    stance: >
+      価格と成分の質は必ずしも比例しない。
+      成分表を読めば安くても良い製品は見つかる。ただしテクスチャや使用感は価格差が出やすい。
+    talking_points:
+      - "成分原価と製品価格の乖離"
+      - "同じ成分でも濃度が違う可能性"
+      - "パッケージ・広告費が価格に反映"
+      - "使用感・テクスチャは価格差が出やすい"
+    ng_statements:
+      - "高い化粧品は無駄"
+      - "安い化粧品は全部ダメ"
+      - "具体的なブランド名での比較"
+
+  - id: "debate_003"
+    title: "オーガニック化粧品の実態"
+    safety_level: "green"
+    category: "skincare_knowledge"
+    keywords: ["オーガニック", "自然派", "天然成分", "植物由来"]
+    recommended_patterns: ["反常識型", "コメント誘導型"]
+    stance: >
+      オーガニック=肌に優しいとは限らない。
+      天然成分にもアレルギーリスクはある。認証基準もバラバラ。
+    talking_points:
+      - "日本にはオーガニックコスメの統一基準がない"
+      - "天然成分のアレルギーリスク"
+      - "合成成分の方が安定性・安全性が高いケースも"
+      - "エコサート等の海外認証の意味"
+    ng_statements:
+      - "オーガニックは意味がない"
+      - "自然派の人を否定する表現"
+      - "特定認証団体の批判"
+
+  # ====== ルーティン論争（green） ======
+  - id: "debate_004"
+    title: "朝の洗顔は必要か？"
+    safety_level: "green"
+    category: "skincare_routine"
+    keywords: ["朝洗顔", "ぬるま湯洗顔", "洗顔料", "皮脂"]
+    recommended_patterns: ["二択・比較型", "コメント誘導型"]
+    stance: >
+      肌質による。脂性肌なら洗顔料推奨、乾燥肌ならぬるま湯でもOK。
+      大事なのは自分の肌を観察すること。
+    talking_points:
+      - "夜の間に出る皮脂量は個人差が大きい"
+      - "洗いすぎによるバリア機能低下リスク"
+      - "季節によって変えるのもアリ"
+    ng_statements:
+      - "朝洗顔しない人は不潔"
+      - "洗顔料は絶対使うべき"
+
+  - id: "debate_005"
+    title: "化粧水は本当に必要か？"
+    safety_level: "yellow"
+    category: "skincare_routine"
+    keywords: ["化粧水不要論", "化粧水", "保湿", "スキンケアステップ"]
+    recommended_patterns: ["反常識型", "コメント誘導型"]
+    stance: >
+      化粧水の役割は水分補給だが、美容液やクリームだけでも保湿は可能。
+      ただし化粧水には肌を柔らかくする整肌効果もある。自分の肌で試すのが一番。
+    talking_points:
+      - "海外では化粧水(toner)の立ち位置が違う"
+      - "セラミド系クリームだけで完結する人もいる"
+      - "化粧水=水分だけではない（整肌成分）"
+    ng_statements:
+      - "化粧水は無駄"
+      - "化粧水を使わない人はスキンケアをわかっていない"
+      - "特定製品の否定"
+
+  - id: "debate_006"
+    title: "スキンケアの順番問題"
+    safety_level: "green"
+    category: "skincare_routine"
+    keywords: ["塗る順番", "化粧水", "美容液", "乳液", "クリーム"]
+    recommended_patterns: ["コメント誘導型", "二択・比較型"]
+    stance: >
+      基本は水→油の順番だが、製品のテクスチャによって例外もある。
+      成分表の上位を見れば水性か油性かわかる。
+    talking_points:
+      - "水→油の原則とその根拠"
+      - "ブースター美容液の位置づけ"
+      - "オールインワンの是非"
+    ng_statements:
+      - "○○の順番は間違い"
+
+  # ====== トレンド論争（yellow） ======
+  - id: "debate_007"
+    title: "レチノールは誰でも使うべきか？"
+    safety_level: "yellow"
+    category: "skincare_ingredients"
+    keywords: ["レチノール", "A反応", "エイジングケア", "20代"]
+    recommended_patterns: ["反常識型", "コメント誘導型"]
+    stance: >
+      レチノールは効果がある成分だが、全員に必要ではない。
+      20代なら他に優先すべき成分がある。A反応のリスクも知っておくべき。
+    talking_points:
+      - "A反応（レチノイド反応）のメカニズム"
+      - "濃度の段階的な上げ方"
+      - "20代はまず保湿とUVケアが優先"
+      - "妊娠中の使用制限"
+    ng_statements:
+      - "レチノールは危険"
+      - "レチノールを使わないと老ける"
+      - "医療的なアドバイス（皮膚科での処方等）"
+
+  - id: "debate_008"
+    title: "日焼け止めの塗り直し問題"
+    safety_level: "green"
+    category: "skincare_routine"
+    keywords: ["日焼け止め", "塗り直し", "SPF", "PA", "紫外線"]
+    recommended_patterns: ["コメント誘導型", "二択・比較型"]
+    stance: >
+      理想は2-3時間おきの塗り直し。でも現実的には難しい。
+      スプレータイプやパウダータイプでの対応がおすすめ。
+    talking_points:
+      - "SPF値の持続時間の真実"
+      - "室内でも紫外線は届く（UVA）"
+      - "塗り直しが難しい場合の代替案"
+      - "みんなの塗り直し頻度を聞く"
+    ng_statements:
+      - "塗り直さない人は肌を痛めつけている"
+
+# --- Writer統合ルール ---
+integration:
+  # 「反常識型」「コメント誘導型」「二択・比較型」パターン選択時に
+  # 一定確率でこのホワイトリストからテーマを注入
+  debate_injection_rate: 0.4
+
+  # 同じ論争テーマの連続使用を防止（日数）
+  min_days_between_same_debate: 7
