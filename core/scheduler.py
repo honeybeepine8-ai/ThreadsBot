@@ -182,6 +182,49 @@ def _build_scheduler_jobs(
     except (ImportError, AttributeError) as exc:
         logger.warning("Skipping agent 'analyst' (not available): %s", exc)
 
+    # Morning review: send email at configured time (cron), check reply on interval
+    try:
+        from core.morning_review import MorningReview
+
+        mr_config = config.get("morning_review", {})
+        send_time = mr_config.get("send_time", "07:00")
+        send_hour, send_minute = send_time.split(":")
+        check_interval = mr_config.get("check_interval_minutes", 10)
+
+        def _morning_review_send() -> None:
+            logger.info("Scheduled run: morning_review_send")
+            ctx = AccountContext()
+            ctx.load_env()
+            try:
+                MorningReview().send_morning_email()
+            except Exception as exc:
+                logger.error("morning_review_send failed: %s", exc)
+
+        def _morning_review_check() -> None:
+            ctx = AccountContext()
+            ctx.load_env()
+            try:
+                MorningReview().check_approval_reply()
+            except Exception as exc:
+                logger.error("morning_review_check failed: %s", exc)
+
+        jobs.append((
+            "morning_review_send",
+            _morning_review_send,
+            {"trigger": "cron", "hour": int(send_hour), "minute": int(send_minute)},
+        ))
+        jobs.append((
+            "morning_review_check",
+            _morning_review_check,
+            {"trigger": "interval", "minutes": check_interval},
+        ))
+        logger.info(
+            "Morning review scheduled: send=%s, check_interval=%dmin",
+            send_time, check_interval,
+        )
+    except ImportError as exc:
+        logger.warning("Skipping morning_review jobs (not available): %s", exc)
+
     return jobs
 
 

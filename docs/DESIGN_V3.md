@@ -63,7 +63,7 @@ V2評価レポート（`docs/ASSESSMENT.md`）から抽出した課題を、影�
 | # | 課題 | 影響 | 現状 |
 |---|------|------|------|
 | C1 | OAuthトークン自動更新 | トークン切れ＝全停止 | `services/token_manager.py` にステータス判定はある。自動リフレッシュAPIコールが未実装 |
-| C2 | 外部通知（Telegram） | 障害に気づけない | DESIGN_V2で設計済み（セクション13.1）。`core/notifier.py` が未実装 |
+| C2 | 外部通知（Gmail） | 障害に気づけない | DESIGN_V2で設計済み（セクション13.1）。`core/notifier.py` が未実装 |
 
 ### 2.2 高（運用1ヶ月以内に必要）
 
@@ -217,16 +217,17 @@ DESIGN_V2 セクション13.1の設計に基づく。
 # core/notifier.py
 
 class Notifier:
-    """通知送信クラス。Telegram Bot APIを使用"""
+    """通知送信クラス。Gmail SMTPを使用"""
 
     def __init__(self, settings: dict):
         self.enabled = settings.get("notifications", {}).get("enabled", False)
-        self.bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-        self.chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+        self.gmail_user = os.environ.get("GMAIL_USER")
+        self.gmail_password = os.environ.get("GMAIL_APP_PASSWORD")
+        self.gmail_to = os.environ.get("GMAIL_TO", self.gmail_user)
 
     def send(self, event_type: str, message: str, severity: str = "info") -> bool:
         """通知を送信。severity: info / warning / error / critical"""
-        if not self.enabled or not self.bot_token:
+        if not self.enabled or not self.gmail_user:
             return False
 
         # 重複抑制: 同一event_typeは30分以内に再送しない
@@ -234,12 +235,12 @@ class Notifier:
             return False
 
         formatted = self._format_message(event_type, message, severity)
-        return self._send_telegram(formatted)
+        return self._send_gmail(formatted)
 
-    def _send_telegram(self, text: str) -> bool:
-        """Telegram Bot API sendMessage"""
-        # POST https://api.telegram.org/bot{token}/sendMessage
-        # body: {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    def _send_gmail(self, text: str) -> bool:
+        """Gmail SMTP sendMessage"""
+        # smtplib.SMTP("smtp.gmail.com", 587) + STARTTLS
+        # GMAIL_USER / GMAIL_APP_PASSWORD で認証
         # リトライ: severity=error以上で最大3回（指数バックオフ）
         ...
 ```
@@ -262,8 +263,9 @@ class Notifier:
 **必要な`.env`追加項目**:
 
 ```
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
+GMAIL_USER=your_address@gmail.com
+GMAIL_APP_PASSWORD=your_16char_app_password
+GMAIL_TO=your_address@gmail.com  # 省略時はGMAIL_USERと同じ
 ```
 
 **`config/settings.yaml`追加項目**:
@@ -297,7 +299,7 @@ notifications:
 ### 完了条件
 
 - [ ] トークンリフレッシュが `token_state.json` を正しく更新する（テスト）
-- [ ] Telegram通知が送信される（手動テスト: テストメッセージ送信スクリプト）
+- [ ] Gmail通知が送信される（手動テスト: テストメッセージ送信スクリプト）
 - [ ] Supervisor実行時にトークン期限チェック→通知が動作する
 - [ ] `pytest tests/ -v` 全パス（新規テスト含む）
 - [ ] `.env.example` に新規項目追加済み
@@ -314,7 +316,7 @@ notifications:
 |----|--------|-------------|------|------|
 | P2-1 | ダッシュボードCLI | `scripts/dashboard.py`（新規） | 3h | なし |
 | P2-2 | 日次レポート自動送信 | `agents/analyst.py` | 2h | P1-2 |
-| P2-3 | Telegram killコマンド | `scripts/telegram_bot.py`（新規） | 3h | P1-2 |
+| P2-3 | Gmail killコマンド | `scripts/gmail_bot.py`（新規） | 3h | P1-2 |
 | P2-4 | ダッシュボードテスト | `tests/test_dashboard.py`（新規） | 1h | P2-1 |
 
 ### P2-1 ダッシュボードCLI
@@ -355,7 +357,7 @@ Queues    : draft 4件 / post 2件 / research 18件
 
 ### P2-2 日次レポート自動送信
 
-Analyst の日次実行（05:00）完了後に、KPIサマリーをTelegram通知する。
+Analyst の日次実行（05:00）完了後に、KPIサマリーをGmail通知する。
 
 **送信内容**:
 
@@ -367,26 +369,23 @@ Queue: draft 5件 / post 3件 / research 22件
 Token: 52日
 ```
 
-### P2-3 Telegram killコマンド
+### P2-3 緊急停止（CLIベース）
 
-モバイルからの緊急停止/状態確認。
+緊急停止はCLIで実施。メール通知でアラートを受信後、PC上で操作する。
 
-**コマンド**:
+**操作コマンド**:
 
-| コマンド | 処理 |
-|---------|------|
-| `/status` | dashboard.pyと同等の状態表示 |
-| `/stop 理由` | `kill_switch.py stop` と同等 |
-| `/clear` | `kill_switch.py clear` と同等 |
-
-**実装方式**: Telegram Bot long polling。daemon起動時に別スレッドで実行。
+| 操作 | コマンド |
+|------|---------|
+| 状態確認 | `python scripts/dashboard.py` |
+| 緊急停止 | `python scripts/kill_switch.py stop "理由"` |
+| 停止解除 | `python scripts/kill_switch.py clear` |
 
 ### 完了条件
 
 - [ ] `python scripts/dashboard.py` で状態が正しく表示される
-- [ ] Analyst実行後に日次レポートがTelegramに届く
-- [ ] Telegram `/status` コマンドでBotの状態が返る
-- [ ] Telegram `/stop` で緊急停止が発動する
+- [ ] Analyst実行後に日次レポートがGmailに届く
+- [ ] 障害アラートメールが届く
 
 ---
 
@@ -667,7 +666,7 @@ Phase 1 (運用生命線) ← P0完了後
 Phase 2 (可観測性) ← P1-2完了後
   P2-1 ダッシュボードCLI
   P2-2 日次レポート ← P1-2
-  P2-3 Telegram killコマンド ← P1-2
+  P2-3 Gmail killコマンド ← P1-2
   P2-4 ダッシュボードテスト ← P2-1
 
 Phase 3 (データ耐久性) ← 独立
@@ -709,7 +708,7 @@ Phase 5 (コード健全化) ← P4-1完了後
 | リスク | 確率 | 影響 | 緩和策 |
 |--------|------|------|--------|
 | Meta APIのトークンリフレッシュ仕様変更 | 低 | 高 | リフレッシュ失敗時の通知を最優先実装。手動更新フォールバックを残す |
-| Telegram Bot APIの一時障害 | 中 | 中 | 通知失敗をログに記録。通知なしでも安全装置は独立して動作する設計 |
+| Gmail Bot APIの一時障害 | 中 | 中 | 通知失敗をログに記録。通知なしでも安全装置は独立して動作する設計 |
 | Writer分割で予期しないリグレッション | 中 | 中 | Phase 4のE2Eテスト完了後にPhase 5を着手。テストで担保 |
 | post_historyアーカイブで類似度チェックに影響 | 低 | 高 | アーカイブ閾値(90日)は類似度チェック範囲(100件≒約17日分)よりはるかに大きい |
 
@@ -720,7 +719,7 @@ Phase 5 (コード健全化) ← P4-1完了後
 - [x] V2の全機能が実装済み（達成済み）
 - [x] 182テスト全パス（達成済み）
 - [ ] **Phase 0完了**: 不要コード削除済み
-- [ ] **Phase 1完了**: トークン自動更新 + Telegram通知が動作
+- [ ] **Phase 1完了**: トークン自動更新 + Gmail通知が動作
 - [ ] **P3-2完了**: バックアップスクリプトが動作
 - [ ] Threads APIトークンが有効（手動確認）
 - [ ] 10件以上のテスト投稿を手動確認
@@ -738,7 +737,7 @@ V3の完了基準。全Phase完了時に以下を満たす。
 - [ ] マルチアカウント関連コードが全て削除されている
 - [ ] `agents/writer.py` が500行以下に分割されている
 - [ ] `.env.example` に全ての環境変数が記載されている
-- [ ] 新規ファイル: `core/notifier.py`, `scripts/dashboard.py`, `scripts/backup.py`, `scripts/telegram_bot.py`
+- [ ] 新規ファイル: `core/notifier.py`, `scripts/dashboard.py`, `scripts/backup.py`, `scripts/gmail_bot.py`
 
 ### テスト
 
@@ -750,8 +749,8 @@ V3の完了基準。全Phase完了時に以下を満たす。
 ### 運用
 
 - [ ] OAuthトークンが自動リフレッシュされる
-- [ ] Telegram通知が全イベントで動作する
-- [ ] Telegramから緊急停止/状態確認が可能
+- [ ] Gmail通知が全イベントで動作する
+- [ ] Gmailから緊急停止/状態確認が可能
 - [ ] `scripts/dashboard.py` で状態表示される
 - [ ] `scripts/backup.py` で日次バックアップが動作する
 - [ ] post_history.jsonが90日超で自動アーカイブされる
@@ -772,7 +771,7 @@ V3の完了基準。全Phase完了時に以下を満たす。
 |-------|---------|---------|------|
 | Phase 0 | 4 | 4h | V2コード整理 |
 | Phase 1 | 7 | 14h | 運用生命線（トークン+通知） |
-| Phase 2 | 4 | 9h | 可観測性（ダッシュボード+Telegram） |
+| Phase 2 | 4 | 9h | 可観測性（ダッシュボード+Gmail） |
 | Phase 3 | 6 | 11h | データ耐久性（アーカイブ+バックアップ） |
 | Phase 4 | 4 | 11h | テスト強化（E2E） |
 | Phase 5 | 4 | 7h | コード健全化（Writer分割） |

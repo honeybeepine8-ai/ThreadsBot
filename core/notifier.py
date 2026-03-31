@@ -1,8 +1,8 @@
-"""Telegram notification system for ThreadsBot.
+"""Gmail notification system for ThreadsBot.
 
-Sends alerts and reports via Telegram Bot API.
+Sends alerts and reports via Gmail SMTP (App Password).
 Supports severity-based retry, deduplication (30min window),
-and inline keyboard buttons for draft review.
+and draft review emails with CLI approval instructions.
 """
 
 from __future__ import annotations
@@ -10,11 +10,12 @@ from __future__ import annotations
 import datetime
 import hashlib
 import os
+import smtplib
 import threading
 import time
+from email.mime.text import MIMEText
 from typing import Any
 
-import httpx
 import yaml
 
 from core.logger import get_logger
@@ -54,22 +55,24 @@ def _load_notification_config() -> dict[str, Any]:
 
 
 class Notifier:
-    """Send notifications via Telegram Bot API.
+    """Send notifications via Gmail SMTP.
 
     Configuration is read from environment variables:
-    - ``TELEGRAM_BOT_TOKEN``: Bot API token from @BotFather
-    - ``TELEGRAM_CHAT_ID``: Target chat/group ID
+    - ``GMAIL_USER``: Gmail address used as sender
+    - ``GMAIL_APP_PASSWORD``: Google App Password (16-char)
+    - ``GMAIL_TO``: Recipient address (defaults to GMAIL_USER)
 
-    If either is missing, all send operations silently no-op.
+    If GMAIL_USER or GMAIL_APP_PASSWORD is missing, all send operations
+    silently no-op.
     """
 
     def __init__(self) -> None:
-        self.bot_token: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-        self.chat_id: str = os.environ.get("TELEGRAM_CHAT_ID", "")
-        self.enabled: bool = bool(self.bot_token and self.chat_id)
+        self.gmail_user: str = os.environ.get("GMAIL_USER", "")
+        self.gmail_password: str = os.environ.get("GMAIL_APP_PASSWORD", "")
+        self.gmail_to: str = os.environ.get("GMAIL_TO", self.gmail_user)
+        self.enabled: bool = bool(self.gmail_user and self.gmail_password)
         self._recent_events: dict[str, float] = {}  # hash → timestamp
         self._lock = threading.Lock()
-        self._http: httpx.Client | None = None
 
         # Load config from settings.yaml
         cfg = _load_notification_config()
@@ -80,7 +83,7 @@ class Notifier:
 
         if not self.enabled:
             logger.info(
-                "Notifier disabled: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set."
+                "Notifier disabled: GMAIL_USER or GMAIL_APP_PASSWORD not set."
             )
 
     # ==================================================================
@@ -107,10 +110,7 @@ class Notifier:
             logger.debug("Notifier disabled, skipping: %s", event_type)
             return False
 
-        # Dedup: skip if same event was sent within 30 minutes.
-        # Uses optimistic recording: reserve the slot before sending so
-        # concurrent threads see the reservation and skip.  If the send
-        # fails, the reservation is removed.
+        # Dedup: skip if same event was sent within the dedup window.
         event_hash = self._hash_event(event_type, message)
         now = time.time()
 
@@ -122,18 +122,16 @@ class Notifier:
             # Optimistic: reserve the slot before sending
             self._recent_events[event_hash] = now
 
-        # Format message with severity prefix
         prefix = self._severity_prefix(severity)
         full_message = f"{prefix} {message}"
+        subject = f"[ThreadsBot][{severity.upper()}] {event_type}"
 
-        # Send with retry for high/critical
         should_retry = severity in (SEVERITY_HIGH, SEVERITY_CRITICAL)
-        success = self._send_message(full_message, retry=should_retry)
+        success = self._send_message(full_message, subject=subject, retry=should_retry)
 
         if success:
             logger.info("Notification sent: [%s] %s", event_type, severity)
         else:
-            # Remove reservation so the event can be retried next time
             with self._lock:
                 self._recent_events.pop(event_hash, None)
             logger.error("Notification failed: [%s] %s", event_type, severity)
@@ -141,10 +139,9 @@ class Notifier:
         return success
 
     def send_draft_review(self, draft: dict[str, Any]) -> bool:
-        """Send a draft for Telegram inline review.
+        """Send a draft review request via email.
 
-        Sends the draft content with inline keyboard buttons:
-        [OK] [NG] [あとで]
+        Includes draft content and CLI instructions for approval/rejection.
 
         Args:
             draft: Draft dict with ``id``, ``content``, ``quality_score``, etc.
@@ -161,34 +158,30 @@ class Notifier:
         category = draft.get("category", "?")
         content = draft.get("content", "")
 
-        text = (
-            f"📝 レビュー待ち\n"
-            f"ID: {draft_id}\n"
-            f"スコア: {score} | パターン: {pattern}\n"
-            f"カテゴリ: {category}\n"
-            f"━━━━━━━━━━\n"
-            f"{content}"
-        )
+        lines = [
+            "レビュー待ち下書き",
+            f"ID: {draft_id}",
+            f"スコア: {score} | パターン: {pattern}",
+            f"カテゴリ: {category}",
+            "━" * 20,
+            content,
+        ]
 
-        # Thread posts
         thread_posts = draft.get("thread_posts")
         if thread_posts:
             for i, tp in enumerate(thread_posts, 1):
-                text += f"\n\n─── thread {i} ───\n{tp}"
+                lines.append(f"\n─── thread {i} ───\n{tp}")
 
-        inline_keyboard = {
-            "inline_keyboard": [
-                [
-                    {"text": "✅ OK", "callback_data": f"approve:{draft_id}"},
-                    {"text": "❌ NG", "callback_data": f"reject:{draft_id}"},
-                    {"text": "⏰ あとで", "callback_data": f"later:{draft_id}"},
-                ]
-            ]
-        }
+        lines += [
+            "",
+            "━" * 20,
+            "承認: python scripts/review.py approve " + draft_id,
+            "却下: python scripts/review.py reject " + draft_id,
+        ]
 
-        return self._send_message(
-            text, reply_markup=inline_keyboard
-        )
+        text = "\n".join(lines)
+        subject = f"[ThreadsBot] レビュー待ち: {draft_id} (スコア {score})"
+        return self._send_message(text, subject=subject)
 
     def send_daily_report(self, report: dict[str, Any]) -> bool:
         """Send a daily KPI report.
@@ -204,7 +197,7 @@ class Notifier:
             return False
 
         lines = [
-            "📊 Daily Report",
+            "Daily Report",
             f"投稿: {report.get('posts_today', 0)}件",
             f"Avg Engagement: {report.get('avg_engagement') or 0:.1f}%",
             f"フォロワー: {report.get('followers_change', '+0')}",
@@ -213,86 +206,65 @@ class Notifier:
 
         top_post = report.get("top_post")
         if top_post:
-            lines.append(f"\n🏆 Top: {top_post[:80]}")
+            lines.append(f"\nTop: {top_post[:80]}")
 
-        return self._send_message("\n".join(lines))
-
-    # ==================================================================
-    # Telegram Bot API
-    # ==================================================================
-
-    def _get_http_client(self) -> httpx.Client:
-        """Return a reusable httpx.Client, creating one if needed."""
-        if self._http is None or self._http.is_closed:
-            self._http = httpx.Client(timeout=10)
-        return self._http
+        subject = f"[ThreadsBot] Daily Report {datetime.date.today()}"
+        return self._send_message("\n".join(lines), subject=subject)
 
     def close(self) -> None:
-        """Close the underlying HTTP client."""
-        if self._http is not None and not self._http.is_closed:
-            self._http.close()
-            self._http = None
+        """No-op: kept for API compatibility."""
+
+    # ==================================================================
+    # Gmail SMTP
+    # ==================================================================
 
     def _send_message(
         self,
         text: str,
         *,
-        parse_mode: str | None = None,
-        reply_markup: dict | None = None,
+        subject: str = "ThreadsBot通知",
         retry: bool = False,
     ) -> bool:
-        """Send a message via Telegram Bot API.
+        """Send an email via Gmail SMTP.
 
         Args:
-            text: Message text (max 4096 chars, truncated if longer).
-            parse_mode: Optional ``"Markdown"`` or ``"HTML"``.
-            reply_markup: Optional inline keyboard markup.
+            text: Email body text.
+            subject: Email subject line.
             retry: Whether to retry on failure.
 
         Returns:
-            ``True`` if the API returned success.
+            ``True`` if sent successfully.
         """
-        if len(text) > 4096:
-            text = text[:4090] + "\n..."
-
-        url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-        payload: dict[str, Any] = {
-            "chat_id": self.chat_id,
-            "text": text,
-        }
-        if parse_mode:
-            payload["parse_mode"] = parse_mode
-        if reply_markup:
-            payload["reply_markup"] = reply_markup
+        msg = MIMEText(text, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = self.gmail_user
+        msg["To"] = self.gmail_to
 
         max_attempts = self._max_retries if retry else 1
-        client = self._get_http_client()
 
         for attempt in range(max_attempts):
             try:
-                resp = client.post(url, json=payload)
+                with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
+                    server.ehlo()
+                    server.starttls()
+                    server.login(self.gmail_user, self.gmail_password)
+                    server.send_message(msg)
+                return True
 
-                if resp.status_code == 200:
-                    return True
-
+            except smtplib.SMTPException as exc:
                 logger.warning(
-                    "Telegram API error %d: %s (attempt %d/%d)",
-                    resp.status_code,
-                    resp.text[:200],
-                    attempt + 1,
-                    max_attempts,
-                )
-
-            except httpx.HTTPError as exc:
-                logger.warning(
-                    "Telegram HTTP error: %s (attempt %d/%d)",
+                    "Gmail SMTP error: %s (attempt %d/%d)",
                     exc,
                     attempt + 1,
                     max_attempts,
                 )
-                # Recreate client on connection errors
-                self.close()
-                client = self._get_http_client()
+            except OSError as exc:
+                logger.warning(
+                    "Gmail connection error: %s (attempt %d/%d)",
+                    exc,
+                    attempt + 1,
+                    max_attempts,
+                )
 
             if attempt < max_attempts - 1:
                 delay = self._retry_delays[min(attempt, len(self._retry_delays) - 1)]

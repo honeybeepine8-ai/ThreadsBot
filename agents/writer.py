@@ -79,7 +79,7 @@ class WriterAgent(
         self.min_char_count: int = writer_cfg.get("min_char_count", 40)
         self.max_char_count: int = writer_cfg.get("max_char_count", 500)
         self.pr_ratio: float = writer_cfg.get("pr_ratio", 0.0)
-        self.profile_cta_rate: float = writer_cfg.get("profile_cta_rate", 0.35)
+        self.profile_cta_rate: float = writer_cfg.get("profile_cta_rate", 0.0)
         self.thread_ratio: float = writer_cfg.get("thread_ratio", 0.0)
         self.thread_min_posts: int = writer_cfg.get("thread_min_posts", 2)
         self.thread_max_posts: int = writer_cfg.get("thread_max_posts", 3)

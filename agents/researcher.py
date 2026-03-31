@@ -46,6 +46,15 @@ _WEB_SOURCES: list[dict[str, str]] = [
     {"url": "https://www.biteki.com/skin-care/", "name": "美的"},
 ]
 
+# Google Trends seed keywords for rising-query discovery
+_GOOGLE_TRENDS_KEYWORDS: list[str] = [
+    "スキンケア",
+    "美容成分",
+    "化粧品",
+    "肌荒れ",
+    "美白",
+]
+
 # Duplicate detection threshold (keyword overlap ratio)
 _DUPLICATE_THRESHOLD = 0.80
 
@@ -97,7 +106,13 @@ class ResearcherAgent(BaseAgent):
         web_topics = self._search_web_trends()
         self.logger.info("Found %d web trend topics.", len(web_topics))
 
-        # 3. Combine all raw sources
+        # 3. Google Trends rising queries
+        trends_topics: list[dict[str, Any]] = []
+        if self.config.get("google_trends_enabled", False):
+            trends_topics = self._search_google_trends()
+            self.logger.info("Found %d Google Trends topics.", len(trends_topics))
+
+        # 4. Combine all raw sources
         all_raw_topics: list[dict[str, Any]] = []
 
         if videos:
@@ -106,12 +121,13 @@ class ResearcherAgent(BaseAgent):
             all_raw_topics.extend(youtube_topics)
 
         all_raw_topics.extend(web_topics)
+        all_raw_topics.extend(trends_topics)
 
         if not all_raw_topics:
             self.logger.warning("No topics found from any source. Skipping.")
             return
 
-        # 4. Load existing pool and deduplicate
+        # 5. Load existing pool and deduplicate
         pool = self.state.load_json("research_pool.json")
         existing_items: list[dict[str, Any]] = pool.get("items", [])
 
@@ -127,10 +143,10 @@ class ResearcherAgent(BaseAgent):
             len(all_raw_topics) - added,
         )
 
-        # 5. Cleanup old items
+        # 6. Cleanup old items
         existing_items = self._cleanup_old_items(existing_items)
 
-        # 6. Persist
+        # 7. Persist
         now_jst = datetime.datetime.now(JST)
         pool["last_updated"] = now_jst.isoformat()
         pool["items"] = existing_items
@@ -184,6 +200,8 @@ class ResearcherAgent(BaseAgent):
 
         post_counts: dict[str, int] = {cat: 0 for cat in category_leafs}
         for post in posts:
+            if post.get("metrics", {}).get("fetch_status") == "unfetchable":
+                continue
             try:
                 posted_at = datetime.datetime.fromisoformat(post.get("posted_at", ""))
             except (ValueError, TypeError):
@@ -332,6 +350,104 @@ class ResearcherAgent(BaseAgent):
             result.append({
                 "id": f"web_{date_str}_{idx:03d}",
                 "source": "web",
+                "source_url": "",
+                "topic": t.get("topic", ""),
+                "summary": t.get("summary", ""),
+                "keywords": t.get("keywords", []),
+                "category": category,
+                "collected_at": now_jst.isoformat(),
+                "used": False,
+                "priority": int(t.get("priority", 5)),
+            })
+
+        return result
+
+    # ------------------------------------------------------------------
+    # Google Trends
+    # ------------------------------------------------------------------
+
+    def _search_google_trends(self) -> list[dict[str, Any]]:
+        """Fetch rising queries from Google Trends for skincare seed keywords.
+
+        Uses pytrends (unofficial API) to retrieve the top rising related
+        queries for each seed keyword in Japan over the past 7 days.
+        Results are passed to Claude for structured topic extraction.
+        """
+        try:
+            from pytrends.request import TrendReq
+        except ImportError:
+            self.logger.warning("pytrends not installed. Skipping Google Trends.")
+            return []
+
+        pytrends = TrendReq(hl="ja-JP", tz=540)
+        rising_queries: list[str] = []
+
+        for keyword in _GOOGLE_TRENDS_KEYWORDS:
+            try:
+                pytrends.build_payload([keyword], geo="JP", timeframe="now 7-d")
+                related = pytrends.related_queries()
+                rising_df = related.get(keyword, {}).get("rising")
+                if rising_df is not None and not rising_df.empty:
+                    for query in rising_df["query"].tolist()[:5]:
+                        rising_queries.append(f"[急上昇: {keyword}] {query}")
+            except Exception as exc:
+                self.logger.debug(
+                    "Google Trends failed for '%s': %s", keyword, exc
+                )
+                continue
+
+        if not rising_queries:
+            self.logger.debug("No rising queries found from Google Trends.")
+            return []
+
+        self.logger.debug(
+            "Google Trends: collected %d rising queries.", len(rising_queries)
+        )
+        return self._extract_trends_topics(rising_queries)
+
+    def _extract_trends_topics(self, queries: list[str]) -> list[dict[str, Any]]:
+        """Use Claude to extract structured topics from Google Trends rising queries."""
+        data_text = "\n".join(queries)
+
+        season_data = self._load_season_matrix()
+        current_month = datetime.datetime.now(JST).month
+        month_cfg = season_data.get("months", {}).get(current_month, {})
+        season_hint = ""
+        if month_cfg:
+            season_hint = (
+                f"\n\n現在の季節: {month_cfg.get('season', '')} "
+                f"({month_cfg.get('theme', '')})"
+            )
+
+        prompt = (
+            "以下のGoogleトレンド急上昇ワードから、Threadsのスキンケア投稿に使えるネタを抽出してください。"
+            "各ネタについて topic, summary, keywords, priority(1-10), category を返してください。"
+            "categoryは以下から選択: skincare_knowledge, skincare_ingredients, skincare_routine, beauty_trend, diet_tips"
+            f"{season_hint}\n"
+            "JSON配列で返してください。JSON配列のみを返し、それ以外のテキストは含めないでください。"
+        )
+
+        try:
+            raw_response = self.claude.analyze(prompt=prompt, data=data_text)
+            topics = self._parse_claude_response(raw_response)
+        except Exception as exc:
+            self.logger.warning(
+                "Google Trends topic extraction via Claude failed: %s", exc
+            )
+            return []
+
+        now_jst = datetime.datetime.now(JST)
+        date_str = now_jst.strftime("%Y%m%d")
+
+        result: list[dict[str, Any]] = []
+        for idx, t in enumerate(topics, start=1):
+            category = t.get("category", "beauty_trend")
+            if category not in _SEARCH_KEYWORDS:
+                category = "beauty_trend"
+
+            result.append({
+                "id": f"gtrends_{date_str}_{idx:03d}",
+                "source": "google_trends",
                 "source_url": "",
                 "topic": t.get("topic", ""),
                 "summary": t.get("summary", ""),

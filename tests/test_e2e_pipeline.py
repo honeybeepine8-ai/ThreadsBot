@@ -171,27 +171,29 @@ class TestWriterExecuteE2E:
                 writer.safety = SafetyGuard(sm)
                 writer.fact_checker = mock_fact_checker
 
-                # Pin pattern to single-post; execute inside patch context
-                with patch.object(writer, "_select_pattern", return_value="短文完結型"):
+                # Pin pattern to single-post; disable UGC/QA special posts
+                with patch.object(writer, "_select_pattern", return_value="短文完結型"), \
+                     patch.object(writer, "_should_generate_ugc", return_value=False), \
+                     patch.object(writer, "_should_generate_qa_solicitation", return_value=False):
                     writer.execute()
 
         # Claude was called exactly once each for generation and evaluation
         assert mock_claude.generate_post.call_count == 1
         assert mock_claude.evaluate_quality.call_count == 1
 
-        # Score 8.6 >= auto_approve 8.5 + no review flags → post_queue (auto-approved)
+        # Score 8.6 < auto_approve_threshold (10.1) → draft_queue (pending_review)
         queue = sm.load_json("post_queue.json")
-        assert len(queue["queue"]) == 1
-        enqueued = queue["queue"][0]
-        assert enqueued["status"] == "pending"
-        assert enqueued["pattern"] == "短文完結型"
-        assert enqueued["quality_score"] == 8.6
-        assert "ビタミンC" in enqueued["content"]
+        assert len(queue["queue"]) == 0  # not auto-approved; stays in draft
 
-        # draft_queue should have a record with auto_approved flag
+        # draft_queue should have one pending_review record
         drafts = sm.load_json("draft_queue.json")
         assert len(drafts["drafts"]) == 1
-        assert drafts["drafts"][0]["flags"]["auto_approved"] is True
+        draft = drafts["drafts"][0]
+        assert draft["status"] == "pending_review"
+        assert draft["pattern"] == "短文完結型"
+        assert draft["quality_score"] == 8.6
+        assert "ビタミンC" in draft["content"]
+        assert draft["flags"]["auto_approved"] is False
 
         # Research item should be marked as used
         pool = sm.load_json("research_pool.json")

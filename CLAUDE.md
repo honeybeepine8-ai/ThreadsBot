@@ -10,7 +10,7 @@ Threads完全自動運用Bot。スキンケア成分知識特化の匿名アカ�
 ## ディレクトリ構成
 - `agents/` — 7つのAIエージェント（researcher, analyst, writer, poster, fetcher, replier, supervisor）
   - `writer_*.py` — Writer分割モジュール（constants, pattern, prompt, quality, thread, content, draft）
-- `core/` — 共通基盤（logger, state_manager, safety, quality_gate, scheduler, boost, notifier, fact_checker）
+- `core/` — 共通基盤（logger, state_manager, safety, quality_gate, scheduler, boost, notifier, fact_checker, account_context）
 - `services/` — 外部API連携（threads_api, claude_client, token_manager）
 - `config/` — 設定ファイル（settings.yaml, schedule.yaml, tone.yaml, ng_words.txt, ugc_templates.yaml）
 - `knowledge/` — コンテンツナレッジ（posting_rules.md, hook_stock.json）
@@ -44,7 +44,7 @@ python scripts/dashboard.py --watch                  # 30秒自動更新
 python scripts/backup.py                             # 手動バックアップ
 python scripts/telegram_bot.py                       # Telegram Botサーバ起動
 python scripts/kill_switch.py stop "理由"            # 緊急停止
-pytest tests/ -v                                     # テスト（275件）
+pytest tests/ -v                                     # テスト（271件）
 ```
 
 ## 重要な設計原則
@@ -53,6 +53,6 @@ pytest tests/ -v                                     # テスト（275件）
 3. 状態管理（全てJSON、アトミック書き込み、ファイルロック対応）
 4. 多重安全装置（NGワード→類似度→品質スコア→投稿間隔→日次上限→Circuit Breaker→KILL_SWITCH）
 5. 薬機法・ステマ規制の遵守
-6. Telegram通知（アラート・日次レポート・リモート緊急停止）
+6. Gmail通知（アラート・日次レポート。設定: GMAIL_USER / GMAIL_APP_PASSWORD）
 7. データ耐久性（90日アーカイブ・日次バックアップ・JSON破損復旧）
 8. 1アカウント優先 — まず@seibun_loveの単体運用を安定させてからマルチアカウント展開に進む。マルチアカウント関連の実装は単体運用が軌道に乗るまで着手しない
