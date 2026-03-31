@@ -176,21 +176,29 @@ class PosterAgent(BaseAgent):
         # 5. Publish follow-up comment as a self-reply for コメント誘導型 posts
         follow_up_comment: str | None = target.get("follow_up_comment")
         if follow_up_comment and target.get("pattern") == "コメント誘導型":
-            self.logger.info(
-                "Publishing follow-up comment for コメント誘導型 post %s …",
-                threads_media_id,
-            )
-            time.sleep(_THREAD_POST_DELAY_SECONDS)
-            try:
-                self.threads.create_text_post(
-                    follow_up_comment,
-                    reply_to_id=threads_media_id,
-                )
-                self.logger.info("Follow-up comment posted.")
-            except Exception as exc:
+            # Re-check emergency stop: can_post() was called only for the main post
+            _sys_state = self.state.load_json("system_state.json")
+            if _sys_state.get("emergency_stop"):
                 self.logger.warning(
-                    "Follow-up comment failed for %s: %s", post_record["id"], exc
+                    "Emergency stop active — skipping follow-up comment for %s.",
+                    post_record["id"],
                 )
+            else:
+                self.logger.info(
+                    "Publishing follow-up comment for コメント誘導型 post %s …",
+                    threads_media_id,
+                )
+                time.sleep(_THREAD_POST_DELAY_SECONDS)
+                try:
+                    self.threads.create_text_post(
+                        follow_up_comment,
+                        reply_to_id=threads_media_id,
+                    )
+                    self.logger.info("Follow-up comment posted.")
+                except Exception as exc:
+                    self.logger.warning(
+                        "Follow-up comment failed for %s: %s", post_record["id"], exc
+                    )
 
         # 6. Publish affiliate comment as a self-reply (if present)
         affiliate_comment: str | None = target.get("affiliate_comment")

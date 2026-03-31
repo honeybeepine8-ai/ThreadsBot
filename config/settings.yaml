@@ -37,7 +37,7 @@ claude:
   researcher_model: "claude-sonnet-4-20250514"
   analyst_model: "claude-sonnet-4-20250514"
   max_tokens_write: 600
-  max_tokens_evaluate: 200
+  max_tokens_evaluate: 350
 
 # --- リサーチャー ---
 researcher:

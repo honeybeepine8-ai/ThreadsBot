@@ -947,6 +947,7 @@ class AnalystAgent(BaseAgent):
             hook_data.setdefault("hooks", []).append({
                 "text": first_line,
                 "source": "auto",
+                "source_post_id": post.get("post_id", ""),
                 "category": post.get("category", ""),
                 "pattern": post.get("pattern", ""),
                 "engagement_type": "実績あり",
@@ -959,8 +960,19 @@ class AnalystAgent(BaseAgent):
 
         if added:
             hook_data["last_updated"] = datetime.now(JST).isoformat()
-            with open(hook_path, "w", encoding="utf-8") as f:
-                _json.dump(hook_data, f, ensure_ascii=False, indent=2)
+            import os as _os
+            import tempfile as _tempfile
+            fd, _tmp = _tempfile.mkstemp(
+                dir=str(hook_path.parent), suffix=".tmp", prefix="hook_stock"
+            )
+            try:
+                with _os.fdopen(fd, "w", encoding="utf-8") as f:
+                    _json.dump(hook_data, f, ensure_ascii=False, indent=2)
+                _os.replace(_tmp, str(hook_path))
+            except OSError:
+                if _os.path.exists(_tmp):
+                    _os.unlink(_tmp)
+                raise
             self.logger.info(
                 "hook_stock updated: +%d hooks (%d total)",
                 added, len(hook_data["hooks"]),

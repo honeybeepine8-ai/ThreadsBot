@@ -594,7 +594,7 @@ class FetcherAgent(BaseAgent):
                 continue
 
             hook_data["hooks"].append({
-                "id": f"hook_{now.strftime('%Y%m%d')}_{added + 1:03d}",
+                "id": f"auto_{post_id}",
                 "text": first_line,
                 "source_post_id": post_id,
                 "pattern": post.get("pattern", ""),

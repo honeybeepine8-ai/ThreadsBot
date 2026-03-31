@@ -92,7 +92,7 @@
       "added_at": "2026-03-31"
     },
     {
-      "text": "美白に効く成分、正直に言うと1つに絞れる",
+      "text": "美白ケアに使われる成分、正直に言うと絞れる話",
       "source": "manual",
       "category": "skincare_ingredients",
       "pattern": "まとめ・結論先出型",
@@ -162,7 +162,7 @@
       "added_at": "2026-03-31"
     },
     {
-      "text": "3ヶ月で毛穴が目立たなくなった成分、答えはシンプル",
+      "text": "毛穴ケアに注目してる成分、3ヶ月試した話",
       "source": "manual",
       "category": "skincare_ingredients",
       "pattern": "ビフォーアフター型",
@@ -282,7 +282,7 @@
       "added_at": "2026-03-31"
     },
     {
-      "text": "コスパ最強の美容液、実は薬局で買える",
+      "text": "コスパで選ぶ美容液、実は薬局で買える",
       "source": "manual",
       "category": "skincare_ingredients",
       "pattern": "暴露・裏話系",
@@ -570,16 +570,6 @@
       "structure": "",
       "engagement_rate": 0.06,
       "added_at": "2026-03-31T14:41:51.998280+09:00"
-    },
-    {
-      "text": "自動蓄積されたフックのテキスト",
-      "source": "auto",
-      "category": "skincare_knowledge",
-      "pattern": "短文完結型",
-      "engagement_type": "実績あり",
-      "structure": "",
-      "engagement_rate": 0.05,
-      "added_at": "2026-03-31T14:41:52.148142+09:00"
     }
   ]
 }

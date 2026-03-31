@@ -757,6 +757,12 @@ class ResearcherAgent(BaseAgent):
                 video["transcript"] = ""
 
         if updated:
+            # Enforce size limit: keep newest 200 entries (dict insertion order = arrival order)
+            _MAX_TRANSCRIPT_ENTRIES = 200
+            if len(entries) > _MAX_TRANSCRIPT_ENTRIES:
+                excess = len(entries) - _MAX_TRANSCRIPT_ENTRIES
+                for _key in list(entries.keys())[:excess]:
+                    del entries[_key]
             cache["entries"] = entries
             cache["last_updated"] = datetime.datetime.now(JST).isoformat()
             self.state.save_json(self._TRANSCRIPT_CACHE_FILE, cache)
