@@ -42,8 +42,8 @@ class ReplierAgent(BaseAgent):
     - Runs NG-word check on every generated reply
     """
 
-    def __init__(self) -> None:
-        super().__init__("replier")
+    def __init__(self, ctx=None) -> None:
+        super().__init__("replier", ctx=ctx)
         self.threads = ThreadsAPIClient()
         self.claude_client = ClaudeClient()
         self.quality_gate = QualityGate()
@@ -58,7 +58,7 @@ class ReplierAgent(BaseAgent):
         self.max_reply_delay: int = replier_cfg.get("max_reply_delay_seconds", 7200)
         self.max_replies_per_run: int = replier_cfg.get("max_replies_per_run", 5)
         self.max_daily_replies: int = replier_cfg.get("max_daily_replies", 20)
-        self.profile_cta_rate: float = replier_cfg.get("profile_cta_rate", 0.3)
+        self.profile_cta_rate: float = replier_cfg.get("profile_cta_rate", 0.0)
         self.scan_hours: int = replier_cfg.get("scan_hours", 48)
         self.skip_own_replies: bool = replier_cfg.get("skip_own_replies", True)
         self.max_replies_per_user_per_day: int = replier_cfg.get(
@@ -109,7 +109,11 @@ class ReplierAgent(BaseAgent):
         for post in posts:
             try:
                 posted_at = datetime.datetime.fromisoformat(post["posted_at"])
-                if posted_at >= cutoff and post.get("threads_media_id"):
+                if (
+                    posted_at >= cutoff
+                    and post.get("threads_media_id")
+                    and post.get("metrics", {}).get("fetch_status") != "unfetchable"
+                ):
                     recent_posts.append(post)
             except (KeyError, ValueError):
                 continue
@@ -728,18 +732,4 @@ class ReplierAgent(BaseAgent):
             self.logger.error("Outbound reply generation failed: %s", exc)
             return None
 
-    @staticmethod
-    def _load_yaml(relative_path: str) -> dict[str, Any]:
-        """Load a YAML file relative to the project root."""
-        import yaml
-
-        full_path = _PROJECT_ROOT / relative_path
-        with open(full_path, encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-
-    @staticmethod
-    def _load_text(relative_path: str) -> str:
-        """Load a text file relative to the project root."""
-        full_path = _PROJECT_ROOT / relative_path
-        with open(full_path, encoding="utf-8") as f:
-            return f.read()
+    # _load_yaml / _load_text are inherited from BaseAgent (account-aware)

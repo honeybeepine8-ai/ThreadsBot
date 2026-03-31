@@ -60,13 +60,11 @@ _WEEKDAY_NAMES: list[str] = [
 ]
 
 # Profile CTA templates (appended to post body to drive profile visits)
-# NOTE: Each template includes 【PR】 for ステマ規制 (景表法) compliance,
-# because the profile link contains affiliate content.
 _PROFILE_CTA_TEMPLATES: list[str] = [
-    "\n\n【PR】プロフにおすすめまとめてるよ→",
-    "\n\n【PR】気になる人はプロフ見てみてね",
-    "\n\n【PR】もっと知りたい人→プロフにリンクあるよ",
-    "\n\n【PR】詳しくはプロフにまとめてるよ",
+    "\n\nプロフにおすすめまとめてるよ→",
+    "\n\n気になる人はプロフ見てみてね",
+    "\n\nもっと知りたい人→プロフにリンクあるよ",
+    "\n\n詳しくはプロフにまとめてるよ",
 ]
 
 

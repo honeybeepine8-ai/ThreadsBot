@@ -107,8 +107,8 @@ class TokenManager:
             return current_token
 
         # Attempt refresh
-        new_token = self._refresh_token(current_token)
-        self._save_token_state(new_token)
+        new_token, expires_in = self._refresh_token(current_token)
+        self._save_token_state(new_token, expires_in_seconds=expires_in)
         self._update_env_file(new_token)
 
         return new_token
@@ -168,7 +168,7 @@ class TokenManager:
     # Internal
     # ------------------------------------------------------------------
 
-    def _refresh_token(self, current_token: str) -> str:
+    def _refresh_token(self, current_token: str) -> tuple[str, int | None]:
         """Exchange the current long-lived token for a new one.
 
         Uses the Threads token refresh endpoint::
@@ -205,8 +205,9 @@ class TokenManager:
                     f"Refresh response missing access_token: {data}"
                 )
 
+            expires_in: int | None = data.get("expires_in")
             logger.info("Token refreshed successfully")
-            return new_token
+            return new_token, expires_in
 
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
@@ -226,10 +227,13 @@ class TokenManager:
             logger.error("Token refresh network error: %s", err_msg)
             raise TokenRefreshError(f"Token refresh network error: {err_msg}") from exc
 
-    def _save_token_state(self, token: str) -> None:
+    def _save_token_state(self, token: str, expires_in_seconds: int | None = None) -> None:
         """Persist token and computed expiry to state file."""
         now = datetime.now(ZoneInfo("Asia/Tokyo"))
-        expires_at = now + timedelta(days=_TOKEN_LIFETIME_DAYS)
+        if expires_in_seconds is not None:
+            expires_at = now + timedelta(seconds=expires_in_seconds)
+        else:
+            expires_at = now + timedelta(days=_TOKEN_LIFETIME_DAYS)
 
         state = {
             "access_token": token,

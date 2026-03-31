@@ -19,6 +19,20 @@ from core.state_manager import StateManager
 _JST = ZoneInfo("Asia/Tokyo")
 
 
+def _make_mock_ctx(tmp_path: Path) -> MagicMock:
+    """Create a mock AccountContext pointing at tmp_path."""
+    ctx = MagicMock()
+    ctx.analytics_dir = tmp_path / "analytics"
+    ctx.analytics_dir.mkdir(exist_ok=True)
+    ctx.root_dir = tmp_path
+    ctx.knowledge_dir = tmp_path / "knowledge"
+    ctx.knowledge_dir.mkdir(exist_ok=True)
+    ctx.config_dir = tmp_path / "config"
+    ctx.config_dir.mkdir(exist_ok=True)
+    ctx.state_dir = tmp_path / "state"
+    return ctx
+
+
 @pytest.fixture()
 def sm(tmp_path: Path) -> StateManager:
     state_dir = tmp_path / "state"
@@ -92,6 +106,12 @@ class TestMetricsCollection:
         from core.safety import SafetyGuard
         from core.notifier import Notifier
 
+        project_root = sm.state_dir.parent
+        analytics_dir = project_root / "analytics"
+        analytics_dir.mkdir(exist_ok=True)
+        knowledge_dir = project_root / "knowledge"
+        knowledge_dir.mkdir(exist_ok=True)
+
         with patch.object(FetcherAgent, "__init__", lambda self: None):
             fetcher = FetcherAgent.__new__(FetcherAgent)
             fetcher.name = "fetcher"
@@ -101,20 +121,15 @@ class TestMetricsCollection:
             fetcher.threads = mock_threads
             fetcher.claude_client = MockClaude.return_value
             fetcher.notifier = Notifier()
-            fetcher.affiliate_mode = "retroactive"
+            fetcher.affiliate_mode = "disabled"
             fetcher.buzz_views = 500
             fetcher.buzz_engagement = 0.05
             fetcher.max_affiliate_per_day = 5
             fetcher.affiliate_cooldown_hours = 6
             fetcher._product_catalog = None
             fetcher._matching_cfg = {}
+            fetcher.ctx = _make_mock_ctx(project_root)
 
-        # Patch the analytics directory
-        project_root = sm.state_dir.parent
-        analytics_dir = project_root / "analytics"
-        analytics_dir.mkdir(exist_ok=True)
-        knowledge_dir = project_root / "knowledge"
-        knowledge_dir.mkdir(exist_ok=True)
         with patch("agents.fetcher._ANALYTICS_DIR", analytics_dir), \
              patch("agents.fetcher._PROJECT_ROOT", project_root):
             fetcher.execute()
@@ -146,6 +161,9 @@ class TestMetricsCollection:
         from core.safety import SafetyGuard
         from core.notifier import Notifier
 
+        analytics_dir = sm.state_dir.parent / "analytics"
+        analytics_dir.mkdir(exist_ok=True)
+
         with patch.object(FetcherAgent, "__init__", lambda self: None):
             fetcher = FetcherAgent.__new__(FetcherAgent)
             fetcher.name = "fetcher"
@@ -162,9 +180,8 @@ class TestMetricsCollection:
             fetcher.affiliate_cooldown_hours = 6
             fetcher._product_catalog = None
             fetcher._matching_cfg = {}
+            fetcher.ctx = _make_mock_ctx(sm.state_dir.parent)
 
-        analytics_dir = sm.state_dir.parent / "analytics"
-        analytics_dir.mkdir(exist_ok=True)
         with patch("agents.fetcher._ANALYTICS_DIR", analytics_dir), \
              patch("agents.fetcher._PROJECT_ROOT", sm.state_dir.parent):
             fetcher.execute()
@@ -196,6 +213,12 @@ class TestPerformanceWrite:
         from core.safety import SafetyGuard
         from core.notifier import Notifier
 
+        project_root = sm.state_dir.parent
+        analytics_dir = project_root / "analytics"
+        analytics_dir.mkdir(exist_ok=True)
+        knowledge_dir = project_root / "knowledge"
+        knowledge_dir.mkdir(exist_ok=True)
+
         with patch.object(FetcherAgent, "__init__", lambda self: None):
             fetcher = FetcherAgent.__new__(FetcherAgent)
             fetcher.name = "fetcher"
@@ -212,12 +235,8 @@ class TestPerformanceWrite:
             fetcher.affiliate_cooldown_hours = 6
             fetcher._product_catalog = None
             fetcher._matching_cfg = {}
+            fetcher.ctx = _make_mock_ctx(project_root)
 
-        project_root = sm.state_dir.parent
-        analytics_dir = project_root / "analytics"
-        analytics_dir.mkdir(exist_ok=True)
-        knowledge_dir = project_root / "knowledge"
-        knowledge_dir.mkdir(exist_ok=True)
         with patch("agents.fetcher._ANALYTICS_DIR", analytics_dir), \
              patch("agents.fetcher._PROJECT_ROOT", project_root):
             fetcher.execute()
@@ -271,6 +290,7 @@ class TestFetchFailure:
             fetcher.affiliate_cooldown_hours = 6
             fetcher._product_catalog = None
             fetcher._matching_cfg = {}
+            fetcher.ctx = _make_mock_ctx(sm.state_dir.parent)
 
         analytics_dir = sm.state_dir.parent / "analytics"
         analytics_dir.mkdir(exist_ok=True)

@@ -42,11 +42,15 @@ class AnalystAgent(BaseAgent):
     recommendations are propagated to ``config/schedule.yaml``.
     """
 
-    def __init__(self) -> None:
-        super().__init__("analyst")
+    def __init__(self, ctx=None) -> None:
+        super().__init__("analyst", ctx=ctx)
         self.claude = ClaudeClient()
         self.config = self._load_analyst_config()
         self.notifier = Notifier()
+
+        # Account-aware paths
+        self._performance_path = self.ctx.analytics_dir / "performance.json"
+        self._audience_path = self.ctx.analytics_dir / "audience.json"
 
     # ------------------------------------------------------------------
     # BaseAgent interface
@@ -396,8 +400,8 @@ class AnalystAgent(BaseAgent):
 
     def _load_performance(self) -> dict[str, Any]:
         """Load ``data/analytics/performance.json``."""
-        if _PERFORMANCE_PATH.exists():
-            with open(_PERFORMANCE_PATH, "r", encoding="utf-8") as f:
+        if self._performance_path.exists():
+            with open(self._performance_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             # Migrate legacy "posts" key to "records" (V1 → V2)
             if "posts" in data and "records" not in data:
@@ -465,8 +469,8 @@ class AnalystAgent(BaseAgent):
         perf["by_category"] = analysis.get("by_category", {})
         perf["last_updated"] = now.isoformat()
 
-        _PERFORMANCE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(_PERFORMANCE_PATH, "w", encoding="utf-8") as f:
+        self._performance_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._performance_path, "w", encoding="utf-8") as f:
             json.dump(perf, f, ensure_ascii=False, indent=2, default=str)
 
         self.logger.info("Updated performance.json summary.")
@@ -578,8 +582,8 @@ class AnalystAgent(BaseAgent):
         if removed > 0:
             perf["records"] = kept
             perf["last_updated"] = now.isoformat()
-            _PERFORMANCE_PATH.parent.mkdir(parents=True, exist_ok=True)
-            with open(_PERFORMANCE_PATH, "w", encoding="utf-8") as f:
+            self._performance_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._performance_path, "w", encoding="utf-8") as f:
                 json.dump(perf, f, ensure_ascii=False, indent=2, default=str)
             self.logger.info(
                 "Rotated performance.json: removed %d old records, %d kept.",
@@ -608,8 +612,8 @@ class AnalystAgent(BaseAgent):
             },
         }
 
-        _AUDIENCE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(_AUDIENCE_PATH, "w", encoding="utf-8") as f:
+        self._audience_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._audience_path, "w", encoding="utf-8") as f:
             json.dump(audience_data, f, ensure_ascii=False, indent=2, default=str)
 
         self.logger.info("Saved audience feedback to audience.json.")
@@ -684,11 +688,13 @@ class AnalystAgent(BaseAgent):
         Args:
             analysis: Output of :meth:`_analyze_performance`.
         """
-        if not _THEME_TREE_PATH.exists():
+        try:
+            theme_tree_path = self._resolve_path("knowledge/theme_tree.yaml")
+        except FileNotFoundError:
             self.logger.warning("theme_tree.yaml not found. Skipping theme tree update.")
             return
 
-        with open(_THEME_TREE_PATH, "r", encoding="utf-8") as f:
+        with open(theme_tree_path, "r", encoding="utf-8") as f:
             tree: dict[str, Any] = yaml.safe_load(f) or {}
 
         # --- Collect all leaf themes grouped by top-level category key ---
@@ -811,7 +817,7 @@ class AnalystAgent(BaseAgent):
         # --- Write back: preserve existing structure, update only _meta ---
         tree["_meta"] = meta
 
-        with open(_THEME_TREE_PATH, "w", encoding="utf-8") as f:
+        with open(theme_tree_path, "w", encoding="utf-8") as f:
             yaml.dump(
                 tree,
                 f,
@@ -843,11 +849,13 @@ class AnalystAgent(BaseAgent):
             analysis: Quantitative analysis dict.
             feedback: Claude-generated feedback dict.
         """
-        if not _SCHEDULE_PATH.exists():
+        try:
+            schedule_path = self._resolve_path("config/schedule.yaml")
+        except FileNotFoundError:
             self.logger.warning("schedule.yaml not found. Skipping update.")
             return
 
-        with open(_SCHEDULE_PATH, "r", encoding="utf-8") as f:
+        with open(schedule_path, "r", encoding="utf-8") as f:
             schedule: dict[str, Any] = yaml.safe_load(f) or {}
 
         time_slots: dict[str, Any] = schedule.get("time_slots", {})
@@ -881,7 +889,7 @@ class AnalystAgent(BaseAgent):
         # Add analyst metadata
         schedule["_analyst_updated_at"] = datetime.now(JST).isoformat()
 
-        with open(_SCHEDULE_PATH, "w", encoding="utf-8") as f:
+        with open(schedule_path, "w", encoding="utf-8") as f:
             yaml.dump(
                 schedule,
                 f,
@@ -896,11 +904,9 @@ class AnalystAgent(BaseAgent):
     # Config loader
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _load_analyst_config() -> dict[str, Any]:
+    def _load_analyst_config(self) -> dict[str, Any]:
         """Load the ``analyst`` section from settings.yaml."""
-        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-            cfg = yaml.safe_load(f)
+        cfg = self._load_yaml("config/settings.yaml")
         return cfg.get("analyst", {})
 
 

@@ -53,18 +53,18 @@ class WriterAgent(
     ``scripts/review.py``.
     """
 
-    def __init__(self) -> None:
-        super().__init__("writer")
+    def __init__(self, ctx=None) -> None:
+        super().__init__("writer", ctx=ctx)
 
         # External services / gates
         self.claude_client = ClaudeClient()
         self.quality_gate = QualityGate()
         self.fact_checker = FactChecker(claude_client=self.claude_client)
 
-        # Load configuration files
-        self.tone_config: dict[str, Any] = load_yaml("config/tone.yaml")
-        self.schedule_config: dict[str, Any] = load_yaml("config/schedule.yaml")
-        self.settings: dict[str, Any] = load_yaml("config/settings.yaml")
+        # Load configuration files (account-aware)
+        self.tone_config: dict[str, Any] = self._load_yaml("config/tone.yaml")
+        self.schedule_config: dict[str, Any] = self._load_yaml("config/schedule.yaml")
+        self.settings: dict[str, Any] = self._load_yaml("config/settings.yaml")
 
         # Apply boost mode overrides if active
         self.schedule_config = get_effective_schedule(self.schedule_config)
@@ -79,7 +79,7 @@ class WriterAgent(
         self.min_char_count: int = writer_cfg.get("min_char_count", 40)
         self.max_char_count: int = writer_cfg.get("max_char_count", 500)
         self.pr_ratio: float = writer_cfg.get("pr_ratio", 0.0)
-        self.profile_cta_rate: float = writer_cfg.get("profile_cta_rate", 0.35)
+        self.profile_cta_rate: float = writer_cfg.get("profile_cta_rate", 0.0)
         self.thread_ratio: float = writer_cfg.get("thread_ratio", 0.0)
         self.thread_min_posts: int = writer_cfg.get("thread_min_posts", 2)
         self.thread_max_posts: int = writer_cfg.get("thread_max_posts", 3)
@@ -109,12 +109,12 @@ class WriterAgent(
         )
         self.draft_expire_hours: int = draft_cfg.get("expire_hours", 12)
 
-        # Load knowledge / prompt templates
-        self.posting_rules: str = load_text("knowledge/posting_rules.md")
-        self.system_prompt: str = load_text("prompts/writer.md")
+        # Load knowledge / prompt templates (account-aware)
+        self.posting_rules: str = self._load_text("knowledge/posting_rules.md")
+        self.system_prompt: str = self._load_text("prompts/writer.md")
 
         # Load audience feedback (TOP5/BOTTOM3 for prompt injection)
-        self._audience_data: dict[str, Any] = load_audience_data()
+        self._audience_data: dict[str, Any] = self._load_audience_data()
 
         self.logger.info(
             "WriterAgent initialised (queue_target=%d, max_attempts=%d, auto_approve>=%.1f)",
@@ -122,6 +122,22 @@ class WriterAgent(
             self.max_generation_attempts,
             self.auto_approve_threshold,
         )
+
+    # ==================================================================
+    # Helpers
+    # ==================================================================
+
+    def _load_audience_data(self) -> dict[str, Any]:
+        """Load audience.json if it exists (account-aware)."""
+        import json as _json
+        path = self.ctx.analytics_dir / "audience.json"
+        if path.exists():
+            try:
+                with open(path, encoding="utf-8") as f:
+                    return _json.load(f)
+            except Exception:
+                pass
+        return {}
 
     # ==================================================================
     # Public entry point

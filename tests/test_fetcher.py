@@ -91,13 +91,16 @@ def fetcher_env(tmp_path: Path):
                 mock_claude.generate_post.return_value = "PR\nこのセラミド化粧水おすすめだよ"
                 mock_claude_cls.return_value = mock_claude
 
-                # Patch the analytics dir
-                with patch("agents.fetcher._ANALYTICS_DIR", analytics_dir):
-                    from agents.fetcher import FetcherAgent
-                    agent = FetcherAgent()
-                    agent.state = sm
-                    agent.safety = SafetyGuard(sm)
+                from unittest.mock import PropertyMock
+                from core.account_context import AccountContext
 
+                from agents.fetcher import FetcherAgent
+                agent = FetcherAgent()
+                agent.state = sm
+                agent.safety = SafetyGuard(sm)
+
+                # Redirect analytics_dir to temp path
+                with patch.object(type(agent.ctx), "analytics_dir", new_callable=PropertyMock, return_value=analytics_dir):
                     # Stub _collect_buzz_hooks to prevent writing to real hook_stock.json
                     agent._collect_buzz_hooks = lambda *a, **kw: None
 

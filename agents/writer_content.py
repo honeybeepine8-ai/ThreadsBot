@@ -98,10 +98,11 @@ class WriterContentMixin:
 
     def _should_generate_ugc(self) -> bool:
         """Check if today is a UGC template posting day and one hasn't been created yet."""
-        from agents.writer_constants import _PROJECT_ROOT, _WEEKDAY_NAMES
+        from agents.writer_constants import _WEEKDAY_NAMES
 
-        ugc_path = _PROJECT_ROOT / "config" / "ugc_templates.yaml"
-        if not ugc_path.exists():
+        try:
+            self._resolve_path("config/ugc_templates.yaml")
+        except FileNotFoundError:
             return False
 
         now = datetime.datetime.now(JST)
@@ -125,10 +126,11 @@ class WriterContentMixin:
 
     def _generate_ugc_post(self, now: datetime.datetime) -> dict[str, Any] | None:
         """Generate a UGC template post for today's scheduled template."""
-        from agents.writer_constants import _PROJECT_ROOT, _WEEKDAY_NAMES
+        from agents.writer_constants import _WEEKDAY_NAMES
 
-        ugc_path = _PROJECT_ROOT / "config" / "ugc_templates.yaml"
-        if not ugc_path.exists():
+        try:
+            self._resolve_path("config/ugc_templates.yaml")
+        except FileNotFoundError:
             return None
 
         today_weekday = _WEEKDAY_NAMES[now.weekday()]
@@ -333,12 +335,9 @@ class WriterContentMixin:
             self.logger.warning("Hook scoring failed: %s — using first candidate", exc)
             return hooks[0]
 
-    @staticmethod
-    def _load_hook_stock() -> list[dict[str, Any]]:
+    def _load_hook_stock(self) -> list[dict[str, Any]]:
         """Load hook stock from knowledge/hook_stock.json."""
-        from agents.writer_constants import _PROJECT_ROOT
-
-        hook_path = _PROJECT_ROOT / "knowledge" / "hook_stock.json"
+        hook_path = self.ctx.knowledge_dir / "hook_stock.json"
         try:
             with open(hook_path, "r", encoding="utf-8") as f:
                 data = _json.load(f)
@@ -398,6 +397,7 @@ class WriterContentMixin:
             f"- 最低{self.min_char_count}文字\n"
             "- 絵文字は0〜2個まで\n"
             "- 投稿本文のみを出力（説明不要）\n"
+            "- 「〇〇枚読んだ」「〇〇年読んでる」等、自分の行動量・経験量を数値で語る表現は使わない\n"
         )
 
         try:

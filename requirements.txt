@@ -11,6 +11,7 @@ python-dotenv>=1.0          # .env読み込み
 
 # --- リサーチ ---
 google-api-python-client>=2.100  # YouTube Data API v3
+pytrends>=4.9                    # Google Trends（非公式API）
 
 # --- テキスト処理 ---
 scikit-learn>=1.3           # TF-IDF + コサイン類似度（類似度チェック）

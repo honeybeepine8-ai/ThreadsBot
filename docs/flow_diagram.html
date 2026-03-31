@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ThreadsBot — 自動投稿フロー</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif;
+    background: #f0f2f5;
+    color: #1a2332;
+    min-height: 100vh;
+    padding: 32px 24px 48px;
+  }
+
+  /* ─── Header ─────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+  .header-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, #4f7ef8, #7c4df8);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 2px 8px rgba(79,126,248,.35);
+  }
+  .header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
+  .header p  { font-size: 13px; color: #637083; margin-top: 2px; }
+  .badge {
+    margin-left: auto;
+    background: #e8f4ea;
+    color: #2d7a3a;
+    font-size: 12px; font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid #b6debb;
+  }
+
+  /* ─── Layout ──────────────────────────────────────── */
+  .canvas {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto auto;
+    gap: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* ─── Cards ───────────────────────────────────────── */
+  .card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 20px;
+    border: 1px solid #e4e8ef;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    position: relative;
+  }
+  .card-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: #9aa5b4;
+    margin-bottom: 10px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .card-subtitle {
+    font-size: 12px;
+    color: #637083;
+    line-height: 1.6;
+  }
+
+  /* agent icon dot */
+  .dot {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+
+  /* interval badge */
+  .interval {
+    position: absolute;
+    top: 14px; right: 16px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  /* ─── Color themes per card ───────────────────────── */
+  .c-scheduler { border-top: 3px solid #4f7ef8; }
+  .c-researcher { border-top: 3px solid #f8a14f; }
+  .c-writer     { border-top: 3px solid #7c4df8; }
+  .c-safety     { border-top: 3px solid #e8445a; }
+  .c-poster     { border-top: 3px solid #2cb67d; }
+  .c-fetcher    { border-top: 3px solid #0ea5e9; }
+  .c-replier    { border-top: 3px solid #ec4899; }
+  .c-analyst    { border-top: 3px solid #f59e0b; }
+  .c-supervisor { border-top: 3px solid #6366f1; }
+  .c-state      { border-top: 3px solid #94a3b8; background: #f8fafc; }
+  .c-output     { border-top: 3px solid #10b981; }
+  .c-review     { border-top: 3px solid #f59e0b; background: #fffbeb; }
+
+  .dot-scheduler { background:#eef2fe; color:#4f7ef8; }
+  .dot-researcher { background:#fff3e8; color:#f8a14f; }
+  .dot-writer     { background:#f0ebfe; color:#7c4df8; }
+  .dot-safety     { background:#fde8eb; color:#e8445a; }
+  .dot-poster     { background:#e8f8f2; color:#2cb67d; }
+  .dot-fetcher    { background:#e0f3fc; color:#0ea5e9; }
+  .dot-replier    { background:#fce8f4; color:#ec4899; }
+  .dot-analyst    { background:#fef3e2; color:#f59e0b; }
+  .dot-supervisor { background:#eeeffe; color:#6366f1; }
+
+  .int-researcher { background:#fff3e8; color:#c97a2a; }
+  .int-writer     { background:#f0ebfe; color:#5e35b1; }
+  .int-poster     { background:#e8f8f2; color:#1a7a52; }
+  .int-fetcher    { background:#e0f3fc; color:#0575a8; }
+  .int-replier    { background:#fce8f4; color:#b5297a; }
+  .int-analyst    { background:#fef3e2; color:#b97500; }
+  .int-supervisor { background:#eeeffe; color:#3d40c4; }
+
+  /* ─── Grid placement ──────────────────────────────── */
+  .g-scheduler  { grid-column: 1 / 4; }
+  .g-researcher { grid-column: 1 / 2; }
+  .g-writer     { grid-column: 2 / 3; }
+  .g-safety     { grid-column: 3 / 4; }
+  .g-state      { grid-column: 1 / 2; }
+  .g-review     { grid-column: 2 / 3; }
+  .g-safetygate { grid-column: 3 / 4; }
+  .g-poster     { grid-column: 1 / 2; }
+  .g-fetcher    { grid-column: 2 / 3; }
+  .g-replier    { grid-column: 3 / 4; }
+  .g-bottom     { grid-column: 1 / 4; }
+
+  /* ─── Flow arrows ─────────────────────────────────── */
+  .arrow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    max-width: 1200px;
+    margin: 0 auto -4px;
+    padding: 0 8px;
+    height: 36px;
+  }
+  .arrow-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+  }
+  .arrow-down {
+    width: 2px;
+    height: 20px;
+    background: #c8d0db;
+  }
+  .arrow-head {
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid #c8d0db;
+  }
+  .arrow-label {
+    font-size: 10px;
+    color: #9aa5b4;
+    font-weight: 600;
+    letter-spacing: .3px;
+    margin-bottom: 2px;
+  }
+
+  /* ─── Sub-items inside cards ──────────────────────── */
+  .item-list {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .item-icon { font-size: 13px; flex-shrink: 0; }
+  .item-ok   { background: #f0faf4; color: #2d7a3a; }
+  .item-warn { background: #fff8e6; color: #8a5e00; }
+  .item-err  { background: #fff0f0; color: #c0392b; }
+  .item-info { background: #f0f4ff; color: #2c50b8; }
+  .item-gray { background: #f4f5f7; color: #4b5563; }
+
+  /* ─── Safety gates ────────────────────────────────── */
+  .gate-list {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .gate {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: 7px;
+    font-size: 11.5px;
+  }
+  .gate-left { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+  .gate-val  { font-size: 11px; font-weight: 700; color: #637083; }
+  .gate-1 { background: #fff0f0; }
+  .gate-2 { background: #fff0f0; }
+  .gate-3 { background: #fff5f0; }
+  .gate-4 { background: #fff8e6; }
+  .gate-5 { background: #f0f4ff; }
+  .gate-6 { background: #f0fdf4; }
+  .gate-7 { background: #fdf0ff; }
+
+  /* ─── State files grid ────────────────────────────── */
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .state-file {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: #f1f3f5;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #374151;
+    border: 1px solid #e4e8ef;
+  }
+  .state-file span { font-size: 13px; }
+
+  /* ─── Queue indicators ────────────────────────────── */
+  .queue-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .queue-box {
+    flex: 1;
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align: center;
+    border: 1px solid;
+  }
+  .queue-box .q-num { font-size: 22px; font-weight: 800; line-height: 1; }
+  .queue-box .q-lbl { font-size: 11px; font-weight: 600; margin-top: 3px; }
+  .q-draft { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+  .q-post  { background: #f0fdf4; border-color: #6ee7b7; color: #065f46; }
+  .q-pool  { background: #f0f4ff; border-color: #a5b4fc; color: #3730a3; }
+
+  /* ─── Divider ─────────────────────────────────────── */
+  .section-divider {
+    grid-column: 1 / 4;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 4px 0;
+  }
+  .section-divider .line { flex: 1; height: 1px; background: #dde2ea; }
+  .section-divider .text {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: #9aa5b4;
+    white-space: nowrap;
+  }
+
+  /* ─── Bottom row ──────────────────────────────────── */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .output-box {
+    border-radius: 12px;
+    padding: 14px 16px;
+    border: 1px solid;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .output-box .o-icon { font-size: 22px; }
+  .output-box .o-title { font-size: 13px; font-weight: 700; }
+  .output-box .o-desc  { font-size: 11.5px; color: #637083; line-height: 1.5; }
+
+  .ob-threads  { background: #f0fdf4; border-color: #6ee7b7; }
+  .ob-telegram { background: #f0f6ff; border-color: #93c5fd; }
+  .ob-history  { background: #f5f3ff; border-color: #c4b5fd; }
+  .ob-affiliate { background: #fffbeb; border-color: #fcd34d; }
+
+  /* ─── Responsive ──────────────────────────────────── */
+  @media (max-width: 900px) {
+    .canvas { grid-template-columns: 1fr; }
+    .g-scheduler, .g-researcher, .g-writer, .g-safety,
+    .g-state, .g-review, .g-safetygate,
+    .g-poster, .g-fetcher, .g-replier, .g-bottom,
+    .section-divider { grid-column: 1 / 2; }
+    .bottom-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ─── Connector lines via SVG overlay ─────────────── */
+  .flow-connector {
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* Score path visual */
+  .score-path {
+    margin-top: 10px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .score-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .sc-auto  { background: #e8f8f2; color: #1a7a52; border: 1px solid #a7e8c8; }
+  .sc-human { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
+  .sc-arrow { color: #9aa5b4; font-size: 13px; }
+
+  /* Timestamps */
+  .ts-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .ts { font-size: 11px; padding: 3px 9px; border-radius: 12px; font-weight: 600; }
+  .ts-blue   { background: #eef2fe; color: #3d40c4; }
+  .ts-orange { background: #fff3e8; color: #c97a2a; }
+  .ts-green  { background: #e8f8f2; color: #1a7a52; }
+  .ts-pink   { background: #fce8f4; color: #b5297a; }
+  .ts-yellow { background: #fef3e2; color: #b97500; }
+  .ts-indigo { background: #eeeffe; color: #3d40c4; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">🤖</div>
+  <div>
+    <h1>ThreadsBot — 自動投稿フロー</h1>
+    <p>@seibun_love • スキンケア成分特化 • V3 運用堅牢化</p>
+  </div>
+  <span class="badge">● RUNNING</span>
+</div>
+
+<div class="canvas">
+
+  <!-- ══════ ROW 0: Scheduler ══════ -->
+  <div class="card c-scheduler g-scheduler">
+    <div class="card-label">Orchestrator</div>
+    <div class="card-title">
+      <span class="dot dot-scheduler">⚙️</span>
+      Scheduler — APScheduler (BlockingScheduler)
+    </div>
+    <div class="card-subtitle">全エージェントを時間間隔で自動呼び出し。<code>python -m core.scheduler all</code> で起動。</div>
+    <div class="ts-row">
+      <span class="ts ts-orange">Researcher 4h間隔</span>
+      <span class="ts ts-indigo">Writer オンデマンド</span>
+      <span class="ts ts-green">Poster 1h間隔</span>
+      <span class="ts ts-blue">Fetcher 6h間隔</span>
+      <span class="ts ts-pink">Replier 30min間隔</span>
+      <span class="ts ts-yellow">Analyst 毎日 05:00</span>
+      <span class="ts ts-indigo">Supervisor 15min間隔</span>
+    </div>
+  </div>
+
+  <!-- ══════ ROW 1: 収集 → 生成 → 安全 ══════ -->
+
+  <div class="card c-researcher g-researcher">
+    <div class="card-label">Step 1 — 情報収集</div>
+    <div class="card-title">
+      <span class="dot dot-researcher">🔍</span>
+      Researcher Agent
+    </div>
+    <span class="interval int-researcher">4h 間隔</span>
+    <div class="card-subtitle">YouTube・Web から最新スキンケアトレンドを収集し、Claude で要約。</div>
+    <div class="item-list">
+      <div class="item item-info">
+        <span class="item-icon">▶️</span>YouTube Data API v3（最大20件/回）
+      </div>
+      <div class="item item-info">
+        <span class="item-icon">🌐</span>Webスクレイピング（@cosme・MAQUIA・美的）
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">🧠</span>Claude Sonnet で要約・カテゴリ分類
+      </div>
+      <div class="item item-ok">
+        <span class="item-icon">📦</span>research_pool.json に保存（重複除外）
+      </div>
+    </div>
+  </div>
+
+  <div class="card c-writer g-writer">
+    <div class="card-label">Step 2 — 投稿生成</div>
+    <div class="card-title">
+      <span class="dot dot-writer">✍️</span>
+      Writer Agent
+    </div>
+    <span class="interval int-writer">オンデマンド</span>
+    <div class="card-subtitle">リサーチプールからネタを取り出し、投稿文を生成・品質判定。</div>
+    <div class="item-list">
+      <div class="item item-gray">
+        <span class="item-icon">📚</span>research_pool.json からネタ取得
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">🧠</span>Claude Sonnet で投稿文生成（最大3回再試行）
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">📐</span>Claude Haiku で品質スコア評価
+      </div>
+    </div>
+    <div class="score-path">
+      <span class="score-chip sc-auto">✅ score ≥ 8.5 → 自動承認 → post_queue</span>
+      <span class="sc-arrow">│</span>
+      <span class="score-chip sc-human">⏳ score &lt; 8.5 → draft_queue → 手動レビュー</span>
+    </div>
+  </div>
+
+  <div class="card c-safety g-safety">
+    <div class="card-label">Safety Gates</div>
+    <div class="card-title">
+      <span class="dot dot-safety">🛡️</span>
+      多重安全装置
+    </div>
+    <div class="card-subtitle">Writer・Poster の両段階でチェック。全ゲート通過で初めて投稿可。</div>
+    <div class="gate-list">
+      <div class="gate gate-1">
+        <span class="gate-left">🚨 KILL_SWITCH</span>
+        <span class="gate-val">緊急停止</span>
+      </div>
+      <div class="gate gate-2">
+        <span class="gate-left">⚡ Circuit Breaker</span>
+        <span class="gate-val">連続3エラーで30min停止</span>
+      </div>
+      <div class="gate gate-3">
+        <span class="gate-left">🕐 投稿間隔</span>
+        <span class="gate-val">90min ± 45min</span>
+      </div>
+      <div class="gate gate-4">
+        <span class="gate-left">📅 日次上限</span>
+        <span class="gate-val">最大 6件/日</span>
+      </div>
+      <div class="gate gate-5">
+        <span class="gate-left">🌙 活動時間</span>
+        <span class="gate-val">7:00 〜 23:00</span>
+      </div>
+      <div class="gate gate-6">
+        <span class="gate-left">🔤 NGワード</span>
+        <span class="gate-val">ng_words.txt</span>
+      </div>
+      <div class="gate gate-7">
+        <span class="gate-left">📊 類似度</span>
+        <span class="gate-val">直近100件 ≤ 0.85</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ Divider ══════ -->
+  <div class="section-divider">
+    <div class="line"></div>
+    <div class="text">State Files &amp; Review</div>
+    <div class="line"></div>
+  </div>
+
+  <!-- ══════ ROW 2: 状態 / レビュー / ゲート詳細 ══════ -->
+
+  <div class="card c-state g-state">
+    <div class="card-label">State Management</div>
+    <div class="card-title">
+      <span class="dot" style="background:#f1f5f9;font-size:15px;">🗄️</span>
+      JSON 状態ファイル
+    </div>
+    <div class="card-subtitle">全状態はアトミック書き込み・ファイルロック対応で永続化。</div>
+    <div class="state-grid">
+      <div class="state-file"><span>📥</span>research_pool.json</div>
+      <div class="state-file"><span>📝</span>draft_queue.json</div>
+      <div class="state-file"><span>📤</span>post_queue.json</div>
+      <div class="state-file"><span>📊</span>post_history.json</div>
+      <div class="state-file"><span>📈</span>performance.json</div>
+      <div class="state-file"><span>🔑</span>token_state.json</div>
+      <div class="state-file"><span>🖥️</span>system_state.json</div>
+      <div class="state-file"><span>💬</span>reply_state.json</div>
+    </div>
+    <div class="queue-row">
+      <div class="queue-box q-pool">
+        <div class="q-num">6</div>
+        <div class="q-lbl">research</div>
+      </div>
+      <div class="queue-box q-draft">
+        <div class="q-num">0</div>
+        <div class="q-lbl">draft</div>
+      </div>
+      <div class="queue-box q-post">
+        <div class="q-num">0</div>
+        <div class="q-lbl">post</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card c-review g-review">
+    <div class="card-label">Human-in-the-Loop</div>
+    <div class="card-title">
+      <span class="dot dot-analyst">👀</span>
+      scripts/review.py — 手動レビュー
+    </div>
+    <div class="card-subtitle">品質スコアが低い下書きを人間が確認・承認。</div>
+    <div class="item-list">
+      <div class="item item-warn">
+        <span class="item-icon">📋</span>draft_queue.json から pending 一覧表示
+      </div>
+      <div class="item item-info">
+        <span class="item-icon">✏️</span>対話式で確認・編集・承認 / 却下
+      </div>
+      <div class="item item-ok">
+        <span class="item-icon">✅</span>承認 → post_queue.json へ移動
+      </div>
+      <div class="item item-err">
+        <span class="item-icon">❌</span>却下 → draft_queue から削除
+      </div>
+    </div>
+    <div style="margin-top:12px;padding:9px 12px;background:#f8f9fc;border-radius:8px;border:1px solid #e4e8ef;">
+      <div style="font-size:11px;color:#637083;font-weight:700;margin-bottom:4px;">実行コマンド</div>
+      <code style="font-size:11.5px;color:#374151;">python scripts/review.py list<br>python scripts/review.py</code>
+    </div>
+  </div>
+
+  <div class="card c-safety g-safetygate" style="border-top-color:#6366f1;">
+    <div class="card-label">Token Management</div>
+    <div class="card-title">
+      <span class="dot dot-supervisor">🔑</span>
+      Token Manager — 自動更新
+    </div>
+    <div class="card-subtitle">Threads API トークンを安全に管理。期限切れを事前に検知。</div>
+    <div class="item-list">
+      <div class="item item-ok">
+        <span class="item-icon">✅</span>現在残り <b>58日</b>（有効期限まで）
+      </div>
+      <div class="item item-warn">
+        <span class="item-icon">⏰</span>期限7日前に Telegram 通知
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">🔄</span>期限60日前に自動更新試行
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">💾</span>token_state.json に永続化
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ Divider ══════ -->
+  <div class="section-divider">
+    <div class="line"></div>
+    <div class="text">Execution &amp; Feedback Loop</div>
+    <div class="line"></div>
+  </div>
+
+  <!-- ══════ ROW 3: 投稿 / フェッチ / リプライ ══════ -->
+
+  <div class="card c-poster g-poster">
+    <div class="card-label">Step 3 — 投稿実行</div>
+    <div class="card-title">
+      <span class="dot dot-poster">🚀</span>
+      Poster Agent
+    </div>
+    <span class="interval int-poster">1h 間隔</span>
+    <div class="card-subtitle">post_queue から scheduled_at が過去の1件を取り出し Threads API へ投稿。</div>
+    <div class="item-list">
+      <div class="item item-gray">
+        <span class="item-icon">📤</span>post_queue から pending かつ時刻到達した先頭1件を選択
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">🛡️</span>SafetyGuard.can_post() で全ゲート確認
+      </div>
+      <div class="item item-ok">
+        <span class="item-icon">✅</span>Threads Graph API へ投稿（スレッド対応）
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">💰</span>アフィリエイトコメントがあれば自己リプライ追加
+      </div>
+      <div class="item item-ok">
+        <span class="item-icon">📚</span>post_history.json に記録・カウンター更新
+      </div>
+    </div>
+  </div>
+
+  <div class="card c-fetcher g-fetcher">
+    <div class="card-label">Step 4 — メトリクス取得</div>
+    <div class="card-title">
+      <span class="dot dot-fetcher">📊</span>
+      Fetcher Agent
+    </div>
+    <span class="interval int-fetcher">6h 間隔</span>
+    <div class="card-subtitle">投稿後6h・24hの2段階でエンゲージメントを計測。バズ検知も実行。</div>
+    <div class="item-list">
+      <div class="item item-info">
+        <span class="item-icon">📡</span>Threads API から views / likes / replies 取得
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">📈</span>post_history.json のメトリクスを更新
+      </div>
+      <div class="item item-warn">
+        <span class="item-icon">🔥</span>バズ検知（views≥500 かつ engagement≥5%）
+      </div>
+      <div class="item item-ok">
+        <span class="item-icon">💰</span>バズ → Supervisor 経由でアフィリエイトリプライ追加
+      </div>
+    </div>
+  </div>
+
+  <div class="card c-replier g-replier">
+    <div class="card-label">Step 5 — エンゲージメント</div>
+    <div class="card-title">
+      <span class="dot dot-replier">💬</span>
+      Replier Agent
+    </div>
+    <span class="interval int-replier">30min 間隔</span>
+    <div class="card-subtitle">フォロワーコメントに Claude で自然な返信を生成。</div>
+    <div class="item-list">
+      <div class="item item-gray">
+        <span class="item-icon">🔍</span>直近48h投稿のコメントをスキャン
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">🧠</span>Claude で返信文生成（65% の確率で返信）
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">⏱️</span>5分〜2時間のランダム遅延で自然に見せる
+      </div>
+      <div class="item item-info">
+        <span class="item-icon">📌</span>30% の返信にプロフ誘導 CTA を追加
+      </div>
+      <div class="item item-ok">
+        <span class="item-icon">✅</span>日次20件・同一ユーザー2件/日 上限あり
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ Divider ══════ -->
+  <div class="section-divider">
+    <div class="line"></div>
+    <div class="text">Analysis &amp; Monitoring</div>
+    <div class="line"></div>
+  </div>
+
+  <!-- ══════ ROW 4: Analyst + Supervisor ══════ -->
+
+  <div class="card c-analyst" style="grid-column:1/2;">
+    <div class="card-label">Step 6 — 分析</div>
+    <div class="card-title">
+      <span class="dot dot-analyst">📉</span>
+      Analyst Agent
+    </div>
+    <span class="interval int-analyst">毎日 05:00</span>
+    <div class="card-subtitle">蓄積データを分析し、次の投稿戦略を自動調整。</div>
+    <div class="item-list">
+      <div class="item item-gray">
+        <span class="item-icon">📊</span>カテゴリ別エンゲージメント・時間帯分析
+      </div>
+      <div class="item item-gray">
+        <span class="item-icon">📐</span>エントロピー計算でコンテンツ多様性を確認
+      </div>
+      <div class="item item-ok">
+        <span class="item-icon">📅</span>推奨投稿スケジュールを schedule.yaml に反映
+      </div>
+    </div>
+  </div>
+
+  <div class="card c-supervisor" style="grid-column:2/4;">
+    <div class="card-label">Step 7 — 監視 &amp; 通知</div>
+    <div class="card-title">
+      <span class="dot dot-supervisor">🔭</span>
+      Supervisor Agent
+    </div>
+    <span class="interval int-supervisor">15min 間隔</span>
+    <div class="card-subtitle">システム全体の健全性を監視し、Telegram で通知・リモートコントロールを提供。</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;">
+      <div class="item item-warn"><span class="item-icon">⚠️</span>heartbeat 30min無更新でアラート</div>
+      <div class="item item-warn"><span class="item-icon">📉</span>フォロワー急減 5% 超でアラート</div>
+      <div class="item item-info"><span class="item-icon">🔑</span>トークン期限7日前に通知</div>
+      <div class="item item-info"><span class="item-icon">📋</span>毎日 07:00 に日次レポート送信</div>
+      <div class="item item-ok"><span class="item-icon">💰</span>バズ投稿にアフィリエイト自動付与</div>
+      <div class="item item-err"><span class="item-icon">🛑</span>Telegram /stop でリモート緊急停止</div>
+    </div>
+  </div>
+
+  <!-- ══════ Divider ══════ -->
+  <div class="section-divider">
+    <div class="line"></div>
+    <div class="text">Outputs</div>
+    <div class="line"></div>
+  </div>
+
+  <!-- ══════ ROW 5: Outputs ══════ -->
+  <div class="g-bottom">
+    <div class="bottom-grid">
+
+      <div class="output-box ob-threads">
+        <div class="o-icon">🧵</div>
+        <div class="o-title">Threads 投稿</div>
+        <div class="o-desc">@seibun_love に最大6件/日の投稿。スレッド形式（ツリー展開）が40%。7:00〜23:00の活動時間内に分散。</div>
+      </div>
+
+      <div class="output-box ob-telegram">
+        <div class="o-icon">📲</div>
+        <div class="o-title">Telegram 通知</div>
+        <div class="o-desc">日次レポート・アラート・[COMPLIANCE]検知通知。/stop でリモート緊急停止、/status で状態確認。</div>
+      </div>
+
+      <div class="output-box ob-history">
+        <div class="o-icon">📚</div>
+        <div class="o-title">データ蓄積</div>
+        <div class="o-desc">post_history.json に全投稿記録。90日超は archive/ に自動移動。毎日 data/backups/ に zip バックアップ（30世代）。</div>
+      </div>
+
+      <div class="output-box ob-affiliate">
+        <div class="o-icon">💰</div>
+        <div class="o-title">アフィリエイト（後乗せ）</div>
+        <div class="o-desc">バズ後（views≥500 &amp; engagement≥5%）にリプライでアフィリエイトリンクを追加。最大5件/日。薬機法遵守。</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════ FLOWCHART SECTION ══════ -->
+<div style="max-width:900px;margin:40px auto 0;background:#fff;border-radius:16px;border:1px solid #e4e8ef;box-shadow:0 1px 6px rgba(0,0,0,.05);padding:28px 24px 32px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+    <div style="width:36px;height:36px;background:linear-gradient(135deg,#4f7ef8,#7c4df8);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">🔀</div>
+    <div>
+      <div style="font-size:16px;font-weight:700;color:#1a2332;">自動投稿フローチャート</div>
+      <div style="font-size:12px;color:#637083;">Researcher → Writer → Queue → Poster → Threads の全フロー</div>
+    </div>
+  </div>
+
+  <svg viewBox="0 0 860 1680" xmlns="http://www.w3.org/2000/svg"
+       font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Hiragino Sans',sans-serif"
+       style="width:100%;height:auto;display:block;">
+    <defs>
+      <marker id="ah"  markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#94a3b8"/></marker>
+      <marker id="ahg" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2cb67d"/></marker>
+      <marker id="aho" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#f59e0b"/></marker>
+      <marker id="ahr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#e8445a"/></marker>
+      <marker id="ahb" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f7ef8"/></marker>
+    </defs>
+
+    <!-- ═══ APScheduler ═══ -->
+    <rect x="280" y="24" width="300" height="52" rx="26" fill="#4f7ef8"/>
+    <text x="430" y="47" text-anchor="middle" fill="white" font-size="14" font-weight="700">⚙️  APScheduler</text>
+    <text x="430" y="64" text-anchor="middle" fill="#c7d9ff" font-size="11">python -m core.scheduler all</text>
+
+    <!-- Branch left → Researcher -->
+    <polyline points="280,50 140,50 140,120" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+    <!-- Branch center → Writer (long path right side) -->
+    <polyline points="580,50 720,50 720,120" stroke="#94a3b8" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#ah)"/>
+    <!-- Center down label -->
+    <text x="660" y="44" text-anchor="middle" fill="#9aa5b4" font-size="10">監視系</text>
+    <text x="210" y="44" text-anchor="middle" fill="#9aa5b4" font-size="10">収集系</text>
+
+    <!-- ═══ LEFT: Researcher pipeline ═══ -->
+    <rect x="50" y="120" width="180" height="50" rx="8" fill="#fff3e8" stroke="#f8a14f" stroke-width="2"/>
+    <text x="140" y="142" text-anchor="middle" fill="#c97a2a" font-size="13" font-weight="700">🔍 Researcher Agent</text>
+    <text x="140" y="158" text-anchor="middle" fill="#c97a2a" font-size="10">4 時間間隔</text>
+
+    <polyline points="140,170 140,210" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <!-- External sources -->
+    <rect x="50" y="210" width="180" height="56" rx="8" fill="#f0fdf4" stroke="#10b981" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <text x="140" y="232" text-anchor="middle" fill="#065f46" font-size="12" font-weight="600">▶ YouTube Data API v3</text>
+    <text x="140" y="247" text-anchor="middle" fill="#065f46" font-size="11">🌐 Web (@cosme / MAQUIA / 美的)</text>
+    <text x="140" y="260" text-anchor="middle" fill="#065f46" font-size="10">Claude Sonnet で要約・分類</text>
+
+    <polyline points="140,266 140,306" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <!-- research_pool.json -->
+    <rect x="50" y="306" width="180" height="50" rx="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2"/>
+    <text x="140" y="328" text-anchor="middle" fill="#374151" font-size="12" font-weight="700">📦 research_pool.json</text>
+    <text x="140" y="344" text-anchor="middle" fill="#637083" font-size="10">現在 6 件 / 重複除外済み</text>
+
+    <!-- Arrow from research_pool → Writer (right and down) -->
+    <polyline points="230,331 290,331 290,446" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+    <text x="259" y="324" fill="#9aa5b4" font-size="10">ネタ供給</text>
+
+    <!-- ═══ RIGHT: Supervisor / monitoring ═══ -->
+    <rect x="630" y="120" width="180" height="50" rx="8" fill="#eeeffe" stroke="#6366f1" stroke-width="2"/>
+    <text x="720" y="142" text-anchor="middle" fill="#3d40c4" font-size="13" font-weight="700">🔭 Supervisor Agent</text>
+    <text x="720" y="158" text-anchor="middle" fill="#3d40c4" font-size="10">15 分間隔 / 全体監視</text>
+
+    <polyline points="720,170 720,210" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <rect x="630" y="210" width="180" height="56" rx="8" fill="#f0f6ff" stroke="#93c5fd" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <text x="720" y="232" text-anchor="middle" fill="#1e40af" font-size="12" font-weight="600">📲 Telegram 通知</text>
+    <text x="720" y="247" text-anchor="middle" fill="#1e40af" font-size="11">日次レポート / アラート</text>
+    <text x="720" y="260" text-anchor="middle" fill="#1e40af" font-size="10">/stop でリモート緊急停止</text>
+
+    <!-- Supervisor also monitors token -->
+    <polyline points="720,266 720,300" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+    <rect x="630" y="300" width="180" height="50" rx="8" fill="#f5f3ff" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="720" y="322" text-anchor="middle" fill="#5b21b6" font-size="12" font-weight="600">🔑 Token Manager</text>
+    <text x="720" y="338" text-anchor="middle" fill="#5b21b6" font-size="10">残り 58 日 / 期限7日前に通知</text>
+
+    <!-- ═══ CENTER: Writer ═══ -->
+    <!-- Writer comes after research_pool + scheduler trigger -->
+    <rect x="340" y="446" width="180" height="50" rx="8" fill="#f0ebfe" stroke="#7c4df8" stroke-width="2"/>
+    <text x="430" y="468" text-anchor="middle" fill="#5e35b1" font-size="13" font-weight="700">✍️ Writer Agent</text>
+    <text x="430" y="484" text-anchor="middle" fill="#5e35b1" font-size="10">queue_target = 6 / オンデマンド起動</text>
+
+    <polyline points="430,496 430,536" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <!-- Claude Sonnet 生成 -->
+    <rect x="340" y="536" width="180" height="50" rx="8" fill="#f5f3ff" stroke="#7c4df8" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <text x="430" y="557" text-anchor="middle" fill="#5e35b1" font-size="12" font-weight="600">🧠 Claude Sonnet 生成</text>
+    <text x="430" y="572" text-anchor="middle" fill="#5e35b1" font-size="10">最大 3 回再試行 / 40〜500 文字</text>
+
+    <polyline points="430,586 430,626" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <!-- Claude Haiku 評価 -->
+    <rect x="340" y="626" width="180" height="50" rx="8" fill="#f5f3ff" stroke="#7c4df8" stroke-width="1.5"/>
+    <text x="430" y="647" text-anchor="middle" fill="#5e35b1" font-size="12" font-weight="600">📐 Claude Haiku 品質評価</text>
+    <text x="430" y="662" text-anchor="middle" fill="#5e35b1" font-size="10">類似度チェック ≤ 0.85 含む</text>
+
+    <polyline points="430,676 430,718" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <!-- 品質スコア判定 DIAMOND -->
+    <!-- center=(430,770), hw=120, hh=52 -->
+    <polygon points="430,718 550,770 430,822 310,770" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+    <text x="430" y="764" text-anchor="middle" fill="#92400e" font-size="12" font-weight="700">品質スコア判定</text>
+    <text x="430" y="780" text-anchor="middle" fill="#92400e" font-size="11">最低 7.5 / 自動承認 8.5</text>
+
+    <!-- LEFT branch: ≥ 8.5 auto-approve -->
+    <polyline points="310,770 220,770 220,882" stroke="#2cb67d" stroke-width="1.5" fill="none" marker-end="url(#ahg)"/>
+    <text x="258" y="762" text-anchor="middle" fill="#2cb67d" font-size="11" font-weight="700">≥ 8.5</text>
+    <text x="258" y="776" text-anchor="middle" fill="#2cb67d" font-size="10">自動承認</text>
+
+    <!-- RIGHT branch: < 8.5 draft -->
+    <polyline points="550,770 640,770 640,840" stroke="#f59e0b" stroke-width="1.5" fill="none" marker-end="url(#aho)"/>
+    <text x="600" y="762" text-anchor="middle" fill="#92400e" font-size="11" font-weight="700">&lt; 8.5</text>
+    <text x="600" y="776" text-anchor="middle" fill="#92400e" font-size="10">レビュー待ち</text>
+
+    <!-- draft_queue.json -->
+    <rect x="550" y="840" width="180" height="50" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+    <text x="640" y="862" text-anchor="middle" fill="#92400e" font-size="12" font-weight="700">📝 draft_queue.json</text>
+    <text x="640" y="878" text-anchor="middle" fill="#92400e" font-size="10">status: pending_review</text>
+
+    <polyline points="640,890 640,930" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <!-- review.py -->
+    <rect x="550" y="930" width="180" height="50" rx="8" fill="#fffbeb" stroke="#fcd34d" stroke-width="2"/>
+    <text x="640" y="952" text-anchor="middle" fill="#92400e" font-size="12" font-weight="700">👀 scripts/review.py</text>
+    <text x="640" y="968" text-anchor="middle" fill="#92400e" font-size="10">対話式 承認 / 却下</text>
+
+    <!-- review approved → merge -->
+    <polyline points="640,980 640,1020 530,1020" stroke="#2cb67d" stroke-width="1.5" fill="none" marker-end="url(#ahg)"/>
+    <text x="590" y="1013" text-anchor="middle" fill="#2cb67d" font-size="10" font-weight="700">承認</text>
+
+    <!-- auto-approve merge -->
+    <polyline points="220,882 220,1020 330,1020" stroke="#2cb67d" stroke-width="1.5" fill="none" marker-end="url(#ahg)"/>
+
+    <!-- post_queue.json merged -->
+    <rect x="330" y="996" width="200" height="52" rx="8" fill="#e8f8f2" stroke="#2cb67d" stroke-width="2"/>
+    <!-- top bar to indicate data store -->
+    <rect x="330" y="996" width="200" height="10" rx="4" fill="#2cb67d"/>
+    <text x="430" y="1029" text-anchor="middle" fill="#065f46" font-size="13" font-weight="700">📤 post_queue.json</text>
+    <text x="430" y="1043" text-anchor="middle" fill="#065f46" font-size="10">status: pending / scheduled_at 付き</text>
+
+    <polyline points="430,1048 430,1086" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <!-- SafetyGuard -->
+    <rect x="305" y="1086" width="250" height="68" rx="8" fill="#fff0f0" stroke="#e8445a" stroke-width="2"/>
+    <text x="430" y="1108" text-anchor="middle" fill="#c0392b" font-size="13" font-weight="700">🛡️ SafetyGuard（7 層）</text>
+    <text x="430" y="1124" text-anchor="middle" fill="#c0392b" font-size="10">KILL_SWITCH · Circuit Breaker · 投稿間隔 90min ± 45min</text>
+    <text x="430" y="1139" text-anchor="middle" fill="#c0392b" font-size="10">日次上限 6 件 · 活動時間 7〜23 時 · NGワード · 類似度 ≤ 0.85</text>
+
+    <polyline points="430,1154 430,1196" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <!-- 通過? DIAMOND -->
+    <!-- center=(430,1240), hw=100, hh=44 -->
+    <polygon points="430,1196 530,1240 430,1284 330,1240" fill="#fff0f0" stroke="#e8445a" stroke-width="2"/>
+    <text x="430" y="1236" text-anchor="middle" fill="#c0392b" font-size="12" font-weight="700">通過?</text>
+    <text x="430" y="1251" text-anchor="middle" fill="#c0392b" font-size="10">can_post()</text>
+
+    <!-- NG right -->
+    <polyline points="530,1240 620,1240" stroke="#e8445a" stroke-width="1.5" fill="none" marker-end="url(#ahr)"/>
+    <text x="572" y="1233" text-anchor="middle" fill="#e8445a" font-size="11" font-weight="700">NG</text>
+    <rect x="620" y="1218" width="140" height="44" rx="6" fill="#fff0f0" stroke="#e8445a" stroke-width="1.5"/>
+    <text x="690" y="1237" text-anchor="middle" fill="#c0392b" font-size="11" font-weight="600">⏭ スキップ</text>
+    <text x="690" y="1252" text-anchor="middle" fill="#c0392b" font-size="10">次の実行まで待機</text>
+
+    <!-- OK down -->
+    <polyline points="430,1284 430,1322" stroke="#2cb67d" stroke-width="1.5" fill="none" marker-end="url(#ahg)"/>
+    <text x="443" y="1308" fill="#2cb67d" font-size="11" font-weight="700">OK</text>
+
+    <!-- Poster Agent -->
+    <rect x="340" y="1322" width="180" height="50" rx="8" fill="#e8f8f2" stroke="#2cb67d" stroke-width="2"/>
+    <text x="430" y="1344" text-anchor="middle" fill="#065f46" font-size="13" font-weight="700">🚀 Poster Agent</text>
+    <text x="430" y="1360" text-anchor="middle" fill="#065f46" font-size="10">1 時間間隔 / scheduled_at 到達で投稿</text>
+
+    <polyline points="430,1372 430,1412" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <!-- Threads API (external dashed) -->
+    <rect x="340" y="1412" width="180" height="50" rx="8" fill="#f0fdf4" stroke="#10b981" stroke-width="2" stroke-dasharray="6,3"/>
+    <text x="430" y="1434" text-anchor="middle" fill="#065f46" font-size="13" font-weight="700">🧵 Threads Graph API</text>
+    <text x="430" y="1450" text-anchor="middle" fill="#065f46" font-size="10">スレッド形式 40% / アフィリ自己リプライ</text>
+
+    <polyline points="430,1462 430,1502" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+    <!-- post_history.json -->
+    <rect x="340" y="1502" width="180" height="50" rx="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2"/>
+    <rect x="340" y="1502" width="180" height="10" rx="4" fill="#94a3b8"/>
+    <text x="430" y="1534" text-anchor="middle" fill="#374151" font-size="12" font-weight="700">📚 post_history.json</text>
+    <text x="430" y="1548" text-anchor="middle" fill="#637083" font-size="10">90 日超→ archive / 日次 zip バックアップ</text>
+
+    <!-- ═══ BOTTOM: Feedback loop agents ═══ -->
+    <polyline points="430,1552 430,1590" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
+    <line x1="110" y1="1590" x2="750" y2="1590" stroke="#94a3b8" stroke-width="1.5"/>
+    <line x1="110" y1="1590" x2="110" y2="1618" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ah)"/>
+    <line x1="310" y1="1590" x2="310" y2="1618" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ah)"/>
+    <line x1="560" y1="1590" x2="560" y2="1618" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ah)"/>
+    <line x1="750" y1="1590" x2="750" y2="1618" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ah)"/>
+
+    <!-- Fetcher -->
+    <rect x="28" y="1618" width="164" height="50" rx="8" fill="#e0f3fc" stroke="#0ea5e9" stroke-width="2"/>
+    <text x="110" y="1639" text-anchor="middle" fill="#0575a8" font-size="12" font-weight="700">📊 Fetcher Agent</text>
+    <text x="110" y="1654" text-anchor="middle" fill="#0575a8" font-size="10">6h / メトリクス取得・バズ検知</text>
+
+    <!-- Replier -->
+    <rect x="228" y="1618" width="164" height="50" rx="8" fill="#fce8f4" stroke="#ec4899" stroke-width="2"/>
+    <text x="310" y="1639" text-anchor="middle" fill="#b5297a" font-size="12" font-weight="700">💬 Replier Agent</text>
+    <text x="310" y="1654" text-anchor="middle" fill="#b5297a" font-size="10">30min / コメント返信 65%</text>
+
+    <!-- Analyst -->
+    <rect x="478" y="1618" width="164" height="50" rx="8" fill="#fef3e2" stroke="#f59e0b" stroke-width="2"/>
+    <text x="560" y="1639" text-anchor="middle" fill="#b97500" font-size="12" font-weight="700">📉 Analyst Agent</text>
+    <text x="560" y="1654" text-anchor="middle" fill="#b97500" font-size="10">毎日 05:00 / 戦略自動調整</text>
+
+    <!-- Supervisor (bottom link) -->
+    <rect x="668" y="1618" width="164" height="50" rx="8" fill="#eeeffe" stroke="#6366f1" stroke-width="2"/>
+    <text x="750" y="1639" text-anchor="middle" fill="#3d40c4" font-size="12" font-weight="700">🔭 Supervisor Agent</text>
+    <text x="750" y="1654" text-anchor="middle" fill="#3d40c4" font-size="10">15min / 異常検知・Telegram</text>
+
+    <!-- Legend: node types -->
+    <rect x="28" y="1440" width="280" height="110" rx="8" fill="#f8fafc" stroke="#e4e8ef" stroke-width="1"/>
+    <text x="168" y="1458" text-anchor="middle" fill="#637083" font-size="11" font-weight="700">凡例</text>
+    <rect x="40" y="1466" width="60" height="20" rx="4" fill="#f0ebfe" stroke="#7c4df8" stroke-width="1.5"/>
+    <text x="108" y="1480" fill="#374151" font-size="10">エージェント（内部処理）</text>
+    <rect x="40" y="1492" width="60" height="20" rx="4" fill="#f0fdf4" stroke="#10b981" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <text x="108" y="1506" fill="#374151" font-size="10">外部 API（破線）</text>
+    <rect x="40" y="1518" width="60" height="20" rx="4" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/>
+    <rect x="40" y="1518" width="60" height="6" rx="3" fill="#94a3b8"/>
+    <text x="108" y="1532" fill="#374151" font-size="10">データストア（上部バー）</text>
+
+  </svg>
+</div>
+
+<!-- Footer -->
+<div style="text-align:center;margin-top:32px;font-size:11.5px;color:#9aa5b4;">
+  ThreadsBot v3 &nbsp;·&nbsp; Python 3.11+ / Claude API / Threads Graph API &nbsp;·&nbsp; 最終更新: 2026-03-29
+</div>
+
+</body>
+</html>

@@ -6,8 +6,7 @@ Usage::
     python scripts/review.py list         # list all pending drafts (non-interactive)
     python scripts/review.py expire       # apply timeout rules to stale drafts
     python scripts/review.py stats        # show draft queue statistics
-    python scripts/review.py notify       # send pending drafts to Telegram for review
-    python scripts/review.py poll         # poll Telegram for approve/reject callbacks
+    python scripts/review.py notify       # send pending drafts via Gmail for review
 
 Reject reason codes:
     weak_hook, off_topic, too_generic, bad_timing,
@@ -23,7 +22,6 @@ import subprocess
 import sys
 import tempfile
 
-import httpx
 from pathlib import Path
 from typing import Any
 
@@ -309,7 +307,7 @@ def cmd_review(sm: StateManager) -> None:
 
 
 def cmd_notify(sm: StateManager) -> None:
-    """Send all pending drafts to Telegram for review."""
+    """Send all pending drafts via email for review."""
     data = _load_drafts(sm)
     pending = _pending_drafts(data)
 
@@ -319,7 +317,7 @@ def cmd_notify(sm: StateManager) -> None:
 
     notifier = Notifier()
     if not notifier.enabled:
-        print("\nTelegram通知が設定されていません（TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID）。")
+        print("\nGmail通知が設定されていません（GMAIL_USER / GMAIL_APP_PASSWORD）。")
         return
 
     sent = 0
@@ -327,126 +325,9 @@ def cmd_notify(sm: StateManager) -> None:
         if notifier.send_draft_review(draft):
             sent += 1
 
-    print(f"\nTelegramに {sent}/{len(pending)} 件の下書きを送信しました。")
+    print(f"\nメールに {sent}/{len(pending)} 件の下書きを送信しました。")
 
 
-def cmd_telegram_poll(sm: StateManager) -> None:
-    """Poll Telegram for callback responses and apply approve/reject actions.
-
-    This runs a one-shot poll: fetches recent callback queries from the
-    Telegram Bot API and processes approve/reject actions.
-    """
-    notifier = Notifier()
-    if not notifier.enabled:
-        print("\nTelegram通知が設定されていません。")
-        return
-
-    # Get updates (callback queries)
-    url = f"https://api.telegram.org/bot{notifier.bot_token}/getUpdates"
-    poll_state = sm.load_json("telegram_poll_state.json")
-    offset = poll_state.get("last_update_id", 0) + 1
-
-    try:
-        with httpx.Client(timeout=10) as client:
-            resp = client.get(url, params={"offset": offset, "timeout": 5})
-        if resp.status_code != 200:
-            print(f"Telegram API error: {resp.status_code}")
-            return
-        result = resp.json()
-    except Exception as exc:
-        print(f"Telegram API error: {exc}")
-        return
-
-    updates = result.get("result", [])
-    if not updates:
-        print("新しいコールバックはありません。")
-        return
-
-    data = _load_drafts(sm)
-    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
-    stats = data.setdefault("stats", {})
-    processed_count = 0
-    last_update_id = poll_state.get("last_update_id", 0)
-
-    for update in updates:
-        update_id = update.get("update_id", 0)
-        if update_id > last_update_id:
-            last_update_id = update_id
-
-        callback = update.get("callback_query")
-        if not callback:
-            continue
-
-        callback_data = callback.get("data", "")
-        callback_id = callback.get("id", "")
-
-        # Parse action:draft_id
-        if ":" not in callback_data:
-            continue
-
-        action, draft_id = callback_data.split(":", 1)
-
-        # Find draft
-        draft = None
-        for d in data.get("drafts", []):
-            if d.get("id") == draft_id and d.get("status") == "pending_review":
-                draft = d
-                break
-
-        # Answer callback to remove loading indicator
-        _answer_callback(notifier.bot_token, callback_id, action, draft_id)
-
-        if draft is None:
-            continue
-
-        if action == "approve":
-            draft["status"] = "approved"
-            draft["review"] = {
-                "action": "approved",
-                "reviewed_at": now.isoformat(),
-                "reviewed_via": "telegram",
-            }
-            _move_to_post_queue(sm, draft, now)
-            stats["manually_approved"] = stats.get("manually_approved", 0) + 1
-            processed_count += 1
-            logger.info("Telegram approved: %s", draft_id)
-
-        elif action == "reject":
-            draft["status"] = "rejected"
-            draft["review"] = {
-                "action": "rejected",
-                "reason_code": "telegram_reject",
-                "reviewed_at": now.isoformat(),
-                "reviewed_via": "telegram",
-            }
-            stats["rejected"] = stats.get("rejected", 0) + 1
-            processed_count += 1
-            logger.info("Telegram rejected: %s", draft_id)
-
-        # "later" → no action, leave as pending_review
-
-    # Save state
-    if processed_count > 0:
-        data["last_updated"] = now.isoformat()
-        _save_drafts(sm, data)
-
-    poll_state["last_update_id"] = last_update_id
-    sm.save_json("telegram_poll_state.json", poll_state)
-
-    print(f"\n{processed_count} 件のレビューを処理しました（全 {len(updates)} 件のupdate）。")
-
-
-def _answer_callback(bot_token: str, callback_id: str, action: str, draft_id: str) -> None:
-    """Send answerCallbackQuery to Telegram to acknowledge the button press."""
-    labels = {"approve": "✅ 承認しました", "reject": "❌ 却下しました", "later": "⏰ 保留"}
-    text = labels.get(action, "処理済み")
-
-    url = f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery"
-    try:
-        with httpx.Client(timeout=5) as client:
-            client.post(url, json={"callback_query_id": callback_id, "text": text})
-    except Exception:
-        pass  # Best-effort
 
 
 # ---------------------------------------------------------------------------
@@ -542,7 +423,6 @@ def main() -> None:
         "stats": cmd_stats,
         "expire": cmd_expire,
         "notify": cmd_notify,
-        "poll": cmd_telegram_poll,
     }
 
     if command in ("--help", "-h"):

@@ -47,8 +47,8 @@ class SupervisorAgent(BaseAgent):
     alerts fire simultaneously, the supervisor triggers an emergency stop.
     """
 
-    def __init__(self) -> None:
-        super().__init__("supervisor")
+    def __init__(self, ctx=None) -> None:
+        super().__init__("supervisor", ctx=ctx)
         self.config = self._load_supervisor_config()
         self.notifier = Notifier()
 
@@ -381,8 +381,7 @@ class SupervisorAgent(BaseAgent):
 
         return alerts
 
-    @staticmethod
-    def _disable_boost_mode() -> None:
+    def _disable_boost_mode(self) -> None:
         """Set ``boost_mode.enabled`` to ``false`` in settings.yaml.
 
         Uses targeted regex replacement instead of yaml.dump to preserve
@@ -390,7 +389,7 @@ class SupervisorAgent(BaseAgent):
         """
         import re
 
-        config_path = Path(__file__).resolve().parent.parent / "config" / "settings.yaml"
+        config_path = self._resolve_path("config/settings.yaml")
         with open(config_path, "r", encoding="utf-8") as f:
             content = f.read()
 
@@ -480,9 +479,7 @@ class SupervisorAgent(BaseAgent):
     # Config loader
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _load_supervisor_config() -> dict[str, Any]:
+    def _load_supervisor_config(self) -> dict[str, Any]:
         """Load the ``supervisor`` section from settings.yaml."""
-        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-            cfg = yaml.safe_load(f)
+        cfg = self._load_yaml("config/settings.yaml")
         return cfg.get("supervisor", {})

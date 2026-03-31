@@ -3,14 +3,13 @@
 Usage::
 
     python -m core.scheduler <agent_name>
-    python -m core.scheduler poster              # run poster once
-    python -m core.scheduler writer              # run writer once
-    python -m core.scheduler all                 # daemon: schedule all agents
+    python -m core.scheduler poster       # run poster once
+    python -m core.scheduler writer       # run writer once
+    python -m core.scheduler all          # daemon: schedule all agents
 
 When *all* is specified the process stays alive using APScheduler's
 ``BlockingScheduler``.  Schedule intervals are read from
-``config/settings.yaml``.  Agents that have not been implemented yet are
-silently skipped (``ImportError`` is caught).
+``config/settings.yaml``.
 """
 
 from __future__ import annotations
@@ -21,13 +20,13 @@ from typing import Any, Callable
 
 import yaml
 
+from core.account_context import AccountContext
 from core.logger import get_logger
-from core.state_manager import StateManager
-from core.safety import SafetyGuard
 
 logger = get_logger("scheduler")
 
-_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "settings.yaml"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_CONFIG_PATH = _PROJECT_ROOT / "config" / "settings.yaml"
 
 # ---------------------------------------------------------------------------
 # Agent registry — maps CLI names to (module_path, class_name) pairs.
@@ -61,7 +60,6 @@ Available agents:
 
 Examples:
   python -m core.scheduler poster
-  python -m core.scheduler writer
   python -m core.scheduler all
 """
 
@@ -71,16 +69,13 @@ Examples:
 # ---------------------------------------------------------------------------
 
 def _load_config() -> dict[str, Any]:
-    """Load the global settings.yaml and return as dict."""
+    """Load settings.yaml from the project config directory."""
     with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def _import_agent(name: str) -> Any:
-    """Dynamically import and return the agent class for *name*.
-
-    Raises ``ImportError`` if the module or class is not available.
-    """
+    """Dynamically import and return the agent class for *name*."""
     module_path, class_name = _AGENT_REGISTRY[name]
     import importlib
     module = importlib.import_module(module_path)
@@ -89,6 +84,9 @@ def _import_agent(name: str) -> Any:
 
 def _run_single(name: str) -> None:
     """Instantiate and run a single agent by name."""
+    ctx = AccountContext()
+    ctx.load_env()
+
     try:
         agent_cls = _import_agent(name)
     except (ImportError, AttributeError) as exc:
@@ -97,7 +95,7 @@ def _run_single(name: str) -> None:
 
     logger.info("Running agent: %s", name)
     try:
-        agent = agent_cls()
+        agent = agent_cls(ctx=ctx)
         agent.run()
     except Exception as exc:
         logger.error("Agent '%s' failed: %s", name, exc)
@@ -109,17 +107,16 @@ def _run_single(name: str) -> None:
 # Daemon (APScheduler)
 # ---------------------------------------------------------------------------
 
-def _build_scheduler_jobs(config: dict[str, Any]) -> list[tuple[str, Callable[[], None], dict[str, Any]]]:
-    """Return a list of ``(agent_name, job_func, trigger_kwargs)`` tuples.
-
-    Agents that cannot be imported are excluded with a warning.
-    """
+def _build_scheduler_jobs(
+    config: dict[str, Any],
+) -> list[tuple[str, Callable[[], None], dict[str, Any]]]:
+    """Return a list of ``(job_id, job_func, trigger_kwargs)`` tuples."""
     jobs: list[tuple[str, Callable[[], None], dict[str, Any]]] = []
 
     # Mapping: agent_name -> (config_section, interval_key)
     interval_agents: dict[str, tuple[str, str]] = {
         "researcher": ("researcher", "run_interval_hours"),
-        "writer": ("writer", "queue_target_size"),  # writer runs on poster interval
+        "writer": ("writer", "run_interval_hours"),
         "poster": ("poster", "run_interval_hours"),
         "fetcher": ("fetcher", "run_interval_hours"),
         "replier": ("replier", "run_interval_minutes"),
@@ -136,7 +133,6 @@ def _build_scheduler_jobs(config: dict[str, Any]) -> list[tuple[str, Callable[[]
         section, key = interval_agents[name]
         agent_config = config.get(section, {})
 
-        # Build trigger kwargs based on unit
         if key.endswith("_minutes"):
             minutes = agent_config.get(key, 15)
             trigger_kwargs: dict[str, Any] = {"trigger": "interval", "minutes": minutes}
@@ -144,15 +140,15 @@ def _build_scheduler_jobs(config: dict[str, Any]) -> list[tuple[str, Callable[[]
             hours = agent_config.get(key, 1)
             trigger_kwargs = {"trigger": "interval", "hours": hours}
         else:
-            # Fallback: 1-hour interval
             trigger_kwargs = {"trigger": "interval", "hours": 1}
 
         def _make_job(cls: Any, agent_name: str) -> Callable[[], None]:
-            """Create a closure that runs the agent with error handling."""
             def _job() -> None:
                 logger.info("Scheduled run: %s", agent_name)
+                ctx = AccountContext()
+                ctx.load_env()
                 try:
-                    instance = cls()
+                    instance = cls(ctx=ctx)
                     instance.run()
                 except Exception as exc:
                     logger.error("Scheduled agent '%s' failed: %s", agent_name, exc)
@@ -172,10 +168,12 @@ def _build_scheduler_jobs(config: dict[str, Any]) -> list[tuple[str, Callable[[]
             "minute": int(minute_str),
         }
 
-        def _analyst_job() -> None:
+        def _analyst_job(a_cls: Any = analyst_cls) -> None:
             logger.info("Scheduled run: analyst")
+            ctx = AccountContext()
+            ctx.load_env()
             try:
-                instance = analyst_cls()
+                instance = a_cls(ctx=ctx)
                 instance.run()
             except Exception as exc:
                 logger.error("Scheduled agent 'analyst' failed: %s", exc)
@@ -183,6 +181,49 @@ def _build_scheduler_jobs(config: dict[str, Any]) -> list[tuple[str, Callable[[]
         jobs.append(("analyst", _analyst_job, cron_kwargs))
     except (ImportError, AttributeError) as exc:
         logger.warning("Skipping agent 'analyst' (not available): %s", exc)
+
+    # Morning review: send email at configured time (cron), check reply on interval
+    try:
+        from core.morning_review import MorningReview
+
+        mr_config = config.get("morning_review", {})
+        send_time = mr_config.get("send_time", "07:00")
+        send_hour, send_minute = send_time.split(":")
+        check_interval = mr_config.get("check_interval_minutes", 10)
+
+        def _morning_review_send() -> None:
+            logger.info("Scheduled run: morning_review_send")
+            ctx = AccountContext()
+            ctx.load_env()
+            try:
+                MorningReview(state_manager=ctx.get_state_manager()).send_morning_email()
+            except Exception as exc:
+                logger.error("morning_review_send failed: %s", exc)
+
+        def _morning_review_check() -> None:
+            ctx = AccountContext()
+            ctx.load_env()
+            try:
+                MorningReview(state_manager=ctx.get_state_manager()).check_approval_reply()
+            except Exception as exc:
+                logger.error("morning_review_check failed: %s", exc)
+
+        jobs.append((
+            "morning_review_send",
+            _morning_review_send,
+            {"trigger": "cron", "hour": int(send_hour), "minute": int(send_minute)},
+        ))
+        jobs.append((
+            "morning_review_check",
+            _morning_review_check,
+            {"trigger": "interval", "minutes": check_interval},
+        ))
+        logger.info(
+            "Morning review scheduled: send=%s, check_interval=%dmin",
+            send_time, check_interval,
+        )
+    except ImportError as exc:
+        logger.warning("Skipping morning_review jobs (not available): %s", exc)
 
     return jobs
 
@@ -192,20 +233,22 @@ def _run_daemon() -> None:
     from apscheduler.schedulers.blocking import BlockingScheduler
 
     config = _load_config()
-    jobs = _build_scheduler_jobs(config)
+    all_jobs = _build_scheduler_jobs(config)
 
-    if not jobs:
+    if not all_jobs:
         print("[ERROR] No agents available to schedule.", file=sys.stderr)
         sys.exit(1)
 
-    scheduler = BlockingScheduler(timezone=config.get("app", {}).get("timezone", "Asia/Tokyo"))
+    tz = config.get("app", {}).get("timezone", "Asia/Tokyo")
+    scheduler = BlockingScheduler(timezone=tz)
 
-    for name, func, trigger_kwargs in jobs:
-        trigger = trigger_kwargs.pop("trigger")
-        scheduler.add_job(func, trigger, id=name, **trigger_kwargs)
-        logger.info("Scheduled agent '%s' with trigger '%s' %s", name, trigger, trigger_kwargs)
+    for job_id, func, trigger_kwargs in all_jobs:
+        trigger = trigger_kwargs["trigger"]
+        job_kwargs = {k: v for k, v in trigger_kwargs.items() if k != "trigger"}
+        scheduler.add_job(func, trigger, id=job_id, **job_kwargs)
+        logger.info("Scheduled '%s' with trigger '%s' %s", job_id, trigger, job_kwargs)
 
-    print(f"ThreadsBot daemon started — {len(jobs)} agent(s) scheduled.")
+    print(f"ThreadsBot daemon started — {len(all_jobs)} job(s) scheduled.")
     print("Press Ctrl+C to stop.")
     try:
         scheduler.start()
@@ -223,10 +266,6 @@ def main() -> None:
     args = list(sys.argv[1:])
 
     if not args or args[0] in ("-h", "--help", "help"):
-        print(HELP_TEXT)
-        sys.exit(0)
-
-    if not args:
         print(HELP_TEXT)
         sys.exit(0)
 

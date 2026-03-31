@@ -98,13 +98,16 @@ class ThreadsAPIClient:
         self,
         text: str,
         reply_to_id: str | None = None,
+        quote_post_id: str | None = None,
     ) -> dict:
-        """Create and publish a text post (optionally as a reply).
+        """Create and publish a text post (optionally as a reply or quote).
 
         Args:
             text: The post body text.
             reply_to_id: If given, the post is created as a reply/comment
                 to the specified media ID.
+            quote_post_id: If given, the post is created as a quote repost
+                of the specified media ID.
 
         Returns:
             ``{"id": "<media_id>", "success": True}``
@@ -116,6 +119,8 @@ class ThreadsAPIClient:
         }
         if reply_to_id is not None:
             params["reply_to_id"] = reply_to_id
+        if quote_post_id is not None:
+            params["quote_post_id"] = quote_post_id
 
         container = self._request(
             "POST",

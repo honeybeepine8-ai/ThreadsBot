@@ -26,13 +26,19 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 class TestLoadHookStock:
 
     def test_returns_empty_when_file_missing(self, tmp_path: Path) -> None:
-        with patch("agents.writer_constants._PROJECT_ROOT", tmp_path):
-            from agents.writer import WriterAgent
+        from unittest.mock import PropertyMock
+        from core.account_context import AccountContext
+        from agents.writer_content import WriterContentMixin
 
-            hooks = WriterAgent._load_hook_stock()
+        # Create a minimal mock with ctx.knowledge_dir pointing to tmp_path
+        mock_self = MagicMock()
+        mock_self.ctx.knowledge_dir = tmp_path / "knowledge"
+        hooks = WriterContentMixin._load_hook_stock(mock_self)
         assert hooks == []
 
     def test_loads_and_sorts_by_engagement(self, tmp_path: Path) -> None:
+        from agents.writer_content import WriterContentMixin
+
         knowledge_dir = tmp_path / "knowledge"
         knowledge_dir.mkdir()
         stock = {
@@ -47,10 +53,9 @@ class TestLoadHookStock:
             json.dumps(stock, ensure_ascii=False), encoding="utf-8"
         )
 
-        with patch("agents.writer_constants._PROJECT_ROOT", tmp_path):
-            from agents.writer import WriterAgent
-
-            hooks = WriterAgent._load_hook_stock()
+        mock_self = MagicMock()
+        mock_self.ctx.knowledge_dir = knowledge_dir
+        hooks = WriterContentMixin._load_hook_stock(mock_self)
 
         assert len(hooks) == 3
         assert hooks[0]["id"] == "h2"  # Highest engagement first
@@ -125,9 +130,10 @@ class TestCollectBuzzHooks:
             "THREADS_USER_ID": "test_user",
         }
 
+        from unittest.mock import PropertyMock
+        from core.account_context import AccountContext
+
         with patch.dict("os.environ", env_vars), \
-             patch("agents.fetcher._PROJECT_ROOT", tmp_path), \
-             patch("agents.fetcher._ANALYTICS_DIR", analytics_dir), \
              patch("agents.fetcher.ThreadsAPIClient") as mock_api_cls, \
              patch("agents.fetcher.ClaudeClient") as mock_claude_cls:
             mock_api_cls.return_value = MagicMock()
@@ -137,7 +143,10 @@ class TestCollectBuzzHooks:
 
             agent = FetcherAgent()
             agent.state = sm
-            yield agent, sm, tmp_path
+            # Redirect ctx paths to temp directory
+            with patch.object(type(agent.ctx), "knowledge_dir", new_callable=PropertyMock, return_value=knowledge_dir), \
+                 patch.object(type(agent.ctx), "analytics_dir", new_callable=PropertyMock, return_value=analytics_dir):
+                yield agent, sm, tmp_path
 
     def test_collects_buzz_hooks(self, fetcher_env) -> None:
         agent, sm, root = fetcher_env
