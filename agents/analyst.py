@@ -114,7 +114,10 @@ class AnalystAgent(BaseAgent):
         if archived:
             self.logger.info("Archived %d old posts from post_history.", archived)
 
-        # 12. Send daily report via Telegram
+        # 12. Auto-accumulate hook stock from top performers
+        self._update_hook_stock(analysis.get("top5", []))
+
+        # 13. Send daily report via Telegram
         self._send_daily_report(analysis, posts)
 
     # ------------------------------------------------------------------
@@ -899,6 +902,69 @@ class AnalystAgent(BaseAgent):
             )
 
         self.logger.info("Updated schedule.yaml with posting-pattern recommendations.")
+
+    # ------------------------------------------------------------------
+    # Hook stock auto-accumulation
+    # ------------------------------------------------------------------
+
+    def _update_hook_stock(self, top_posts: list[dict[str, Any]]) -> None:
+        """Add first lines of top-performing posts to hook_stock.json.
+
+        Called after each analysis run.  Only posts with a non-empty
+        ``content_preview`` (i.e. performance records that include the first
+        line of their content) are considered.  Duplicates are skipped.
+
+        Args:
+            top_posts: List of top-performing post dicts from
+                :meth:`_analyze_performance`, each containing at minimum
+                ``content_preview``, ``category``, ``pattern``, and
+                ``engagement_rate`` keys.
+        """
+        try:
+            hook_path = self._resolve_path("knowledge/hook_stock.json")
+        except FileNotFoundError:
+            self.logger.warning("hook_stock.json not found. Skipping hook_stock update.")
+            return
+
+        import json as _json
+
+        try:
+            with open(hook_path, "r", encoding="utf-8") as f:
+                hook_data: dict[str, Any] = _json.load(f)
+        except (OSError, _json.JSONDecodeError):
+            hook_data = {"hooks": []}
+
+        existing_texts: set[str] = {h["text"] for h in hook_data.get("hooks", [])}
+        added = 0
+
+        for post in top_posts:
+            first_line = post.get("content_preview", "").strip()
+            if not first_line or first_line in existing_texts:
+                continue
+            if len(first_line) < 10 or len(first_line) > 60:
+                continue
+
+            hook_data.setdefault("hooks", []).append({
+                "text": first_line,
+                "source": "auto",
+                "category": post.get("category", ""),
+                "pattern": post.get("pattern", ""),
+                "engagement_type": "実績あり",
+                "structure": "",
+                "engagement_rate": post.get("engagement_rate", 0.0),
+                "added_at": datetime.now(JST).isoformat(),
+            })
+            existing_texts.add(first_line)
+            added += 1
+
+        if added:
+            hook_data["last_updated"] = datetime.now(JST).isoformat()
+            with open(hook_path, "w", encoding="utf-8") as f:
+                _json.dump(hook_data, f, ensure_ascii=False, indent=2)
+            self.logger.info(
+                "hook_stock updated: +%d hooks (%d total)",
+                added, len(hook_data["hooks"]),
+            )
 
     # ------------------------------------------------------------------
     # Config loader

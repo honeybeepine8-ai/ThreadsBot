@@ -112,6 +112,10 @@ class ResearcherAgent(BaseAgent):
             trends_topics = self._search_google_trends()
             self.logger.info("Found %d Google Trends topics.", len(trends_topics))
 
+        # 3b. Enrich top videos with transcripts (P7-1)
+        if videos:
+            videos = self._enrich_with_transcripts(videos, max_videos=5)
+
         # 4. Combine all raw sources
         all_raw_topics: list[dict[str, Any]] = []
 
@@ -614,10 +618,15 @@ class ResearcherAgent(BaseAgent):
         # Build a textual summary of all videos grouped by category
         lines: list[str] = []
         for v in videos:
+            transcript_text = v.get("transcript", "")
+            transcript_section = (
+                f"  字幕（抜粋）: {transcript_text[:500]}\n" if transcript_text else ""
+            )
             lines.append(
                 f"[{v['category']}] {v['title']}\n"
                 f"  チャンネル: {v['channel_title']}\n"
                 f"  説明: {v['description'][:300]}\n"
+                f"{transcript_section}"
                 f"  URL: https://youtube.com/watch?v={v['video_id']}\n"
             )
 
@@ -681,6 +690,78 @@ class ResearcherAgent(BaseAgent):
             )
 
         return result
+
+    # ------------------------------------------------------------------
+    # Transcript enrichment (P7-1)
+    # ------------------------------------------------------------------
+
+    _TRANSCRIPT_CACHE_FILE = "transcript_cache.json"
+
+    def _enrich_with_transcripts(
+        self,
+        videos: list[dict[str, Any]],
+        max_videos: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Fetch Japanese transcripts for the first *max_videos* and attach them.
+
+        Videos that already have a cached transcript are served from the cache.
+        Videos with no Japanese subtitle track are silently skipped.
+
+        Args:
+            videos: List of video dicts from :meth:`_search_youtube`.
+            max_videos: Maximum number of videos to fetch transcripts for.
+
+        Returns:
+            The same list with ``transcript`` field added where available.
+        """
+        try:
+            from youtube_transcript_api import (
+                YouTubeTranscriptApi,
+                TranscriptsDisabled,
+                NoTranscriptFound,
+            )
+        except ImportError:
+            self.logger.warning(
+                "youtube-transcript-api not installed. Skipping transcript enrichment."
+            )
+            return videos
+
+        cache = self.state.load_json(self._TRANSCRIPT_CACHE_FILE)
+        entries: dict[str, str] = cache.get("entries", {})
+        updated = False
+
+        for video in videos[:max_videos]:
+            vid = video.get("video_id", "")
+            if not vid:
+                continue
+
+            if vid in entries:
+                video["transcript"] = entries[vid]
+                continue
+
+            try:
+                transcript_list = YouTubeTranscriptApi.get_transcript(
+                    vid, languages=["ja", "ja-JP"]
+                )
+                text = " ".join(seg["text"] for seg in transcript_list)
+                # Trim to ~1000 chars; Claude will get 500 of this
+                entries[vid] = text[:1000]
+                video["transcript"] = entries[vid]
+                updated = True
+                self.logger.debug("Fetched transcript for video %s (%d chars)", vid, len(text))
+            except (TranscriptsDisabled, NoTranscriptFound):
+                self.logger.debug("No Japanese transcript for video %s", vid)
+                video["transcript"] = ""
+            except Exception as exc:
+                self.logger.warning("Transcript fetch error for %s: %s", vid, exc)
+                video["transcript"] = ""
+
+        if updated:
+            cache["entries"] = entries
+            cache["last_updated"] = datetime.datetime.now(JST).isoformat()
+            self.state.save_json(self._TRANSCRIPT_CACHE_FILE, cache)
+
+        return videos
 
     # ------------------------------------------------------------------
     # Duplicate detection

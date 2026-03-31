@@ -710,6 +710,8 @@ def _build_performance_record(
     engagement_rate = (total_engagement / total_views * 100) if total_views else 0.0
 
     content = post.get("content", "")
+    # Store only the first line (hook) for Analyst's hook_stock accumulation
+    first_line = content.split("\n")[0].strip()[:80]
     return {
         "post_id": post.get("id", ""),
         "threads_media_id": post.get("threads_media_id", ""),
@@ -717,6 +719,7 @@ def _build_performance_record(
         "category": post.get("category", ""),
         "pattern": post.get("pattern", ""),
         "quality_score": post.get("quality_score", 0.0),
+        "content": first_line,
         "content_length": len(content),
         "stage": stage,
         "views": insights.get("views", 0),

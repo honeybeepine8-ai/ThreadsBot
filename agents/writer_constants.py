@@ -23,15 +23,18 @@ _CATEGORY_HASHTAGS: dict[str, str] = {
     "diet_tips": "#ダイエット",
 }
 
-# Quality scoring: 2-group averaging (V2)
+# Quality scoring: 3-group averaging (V3.1 — 10 items)
 _CONTENT_QUALITY_GROUP: frozenset[str] = frozenset(
-    {"usefulness", "specificity", "empathy"}
+    {"usefulness", "specificity", "empathy", "call_to_action"}
 )
 _EXPRESSION_QUALITY_GROUP: frozenset[str] = frozenset(
     {"naturalness", "tempo", "experiential", "non_commercial"}
 )
+_HOOK_QUALITY_GROUP: frozenset[str] = frozenset(
+    {"hook_strength", "persona_match"}
+)
 
-# All 18 posting patterns (15 original + UGC + QA solicitation + QA answer)
+# All posting patterns (21 total as of V3.1)
 _ALL_PATTERNS: list[str] = [
     "短文完結型",
     "コメント誘導型",
@@ -48,10 +51,45 @@ _ALL_PATTERNS: list[str] = [
     "数字インパクト型",
     "ストーリー型",
     "まとめ・結論先出型",
+    "失敗談型",          # V3.1追加
+    "ランキング異議型",  # V3.1追加
+    "季節タイムリー型",  # V3.1追加
     "UGCテンプレ型",
     "質問募集型",
     "フォロワー質問回答型",
 ]
+
+# Pattern classification for distribution control (V3.1)
+_KAKUSAN_PATTERNS: frozenset[str] = frozenset({
+    "コメント誘導型",
+    "反常識型",
+    "短文完結型",
+    "二択・比較型",
+    "あるある共感型",
+    "暴露・裏話系",
+    "需要確認型",
+    "失敗談型",
+    "ランキング異議型",
+    "実体験レビュー型",
+})
+_HOZON_PATTERNS: frozenset[str] = frozenset({
+    "リスト系",
+    "まとめ・結論先出型",
+    "タイムライン型",
+    "数字インパクト型",
+    "ビフォーアフター型",
+    "ストーリー型",
+})
+_BOTH_PATTERNS: frozenset[str] = frozenset({
+    "季節タイムリー型",
+})
+# Special-purpose patterns excluded from normal distribution ratios
+_SPECIAL_PATTERNS: frozenset[str] = frozenset({
+    "ツリー展開型",
+    "UGCテンプレ型",
+    "質問募集型",
+    "フォロワー質問回答型",
+})
 
 # Day-of-week name mapping for schedule.yaml keys
 _WEEKDAY_NAMES: list[str] = [
