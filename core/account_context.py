@@ -30,7 +30,7 @@ class AccountContext:
     PROJECT_ROOT: ClassVar[Path] = _PROJECT_ROOT
 
     def __init__(self, account_id: str = "default") -> None:
-        self.account_id = "default"
+        self.account_id = account_id
         self.root_dir = _PROJECT_ROOT
         self._state_manager: StateManager | None = None
 

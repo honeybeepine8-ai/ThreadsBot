@@ -65,12 +65,12 @@ def _load_config() -> dict[str, Any]:
 class MorningReview:
     """Send daily draft summary email and approve on "OK" reply."""
 
-    def __init__(self) -> None:
+    def __init__(self, state_manager: StateManager | None = None) -> None:
         self.gmail_user: str = os.environ.get("GMAIL_USER", "")
         self.gmail_password: str = os.environ.get("GMAIL_APP_PASSWORD", "")
         self.gmail_to: str = os.environ.get("GMAIL_TO", self.gmail_user)
         self.enabled: bool = bool(self.gmail_user and self.gmail_password)
-        self.state = StateManager()
+        self.state = state_manager or StateManager()
 
         cfg = _load_config()
         self.approval_keyword: str = cfg.get("approval_keyword", "OK").upper()
@@ -280,7 +280,7 @@ class MorningReview:
             stripped = line.strip()
             if not stripped or stripped.startswith(">"):
                 continue
-            return self.approval_keyword in stripped.upper()
+            return stripped.upper() == self.approval_keyword
         return False
 
     # ------------------------------------------------------------------

@@ -116,7 +116,7 @@ def _build_scheduler_jobs(
     # Mapping: agent_name -> (config_section, interval_key)
     interval_agents: dict[str, tuple[str, str]] = {
         "researcher": ("researcher", "run_interval_hours"),
-        "writer": ("poster", "run_interval_hours"),
+        "writer": ("writer", "run_interval_hours"),
         "poster": ("poster", "run_interval_hours"),
         "fetcher": ("fetcher", "run_interval_hours"),
         "replier": ("replier", "run_interval_minutes"),
@@ -196,7 +196,7 @@ def _build_scheduler_jobs(
             ctx = AccountContext()
             ctx.load_env()
             try:
-                MorningReview().send_morning_email()
+                MorningReview(state_manager=ctx.get_state_manager()).send_morning_email()
             except Exception as exc:
                 logger.error("morning_review_send failed: %s", exc)
 
@@ -204,7 +204,7 @@ def _build_scheduler_jobs(
             ctx = AccountContext()
             ctx.load_env()
             try:
-                MorningReview().check_approval_reply()
+                MorningReview(state_manager=ctx.get_state_manager()).check_approval_reply()
             except Exception as exc:
                 logger.error("morning_review_check failed: %s", exc)
 
@@ -243,9 +243,10 @@ def _run_daemon() -> None:
     scheduler = BlockingScheduler(timezone=tz)
 
     for job_id, func, trigger_kwargs in all_jobs:
-        trigger = trigger_kwargs.pop("trigger")
-        scheduler.add_job(func, trigger, id=job_id, **trigger_kwargs)
-        logger.info("Scheduled '%s' with trigger '%s' %s", job_id, trigger, trigger_kwargs)
+        trigger = trigger_kwargs["trigger"]
+        job_kwargs = {k: v for k, v in trigger_kwargs.items() if k != "trigger"}
+        scheduler.add_job(func, trigger, id=job_id, **job_kwargs)
+        logger.info("Scheduled '%s' with trigger '%s' %s", job_id, trigger, job_kwargs)
 
     print(f"ThreadsBot daemon started — {len(all_jobs)} job(s) scheduled.")
     print("Press Ctrl+C to stop.")

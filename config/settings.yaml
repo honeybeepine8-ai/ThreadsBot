@@ -61,6 +61,7 @@ morning_review:
 
 # --- ライター ---
 writer:
+  run_interval_hours: 2
   max_generation_attempts: 3         # 品質/類似度で棄却時の再生成上限（5→3に削減）
   queue_target_size: 6              # 日次上限6件に合わせる
   recent_pattern_block: 3            # 直近N件と同じパターンは使えない
