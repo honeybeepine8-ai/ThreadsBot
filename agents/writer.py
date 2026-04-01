@@ -259,10 +259,18 @@ class WriterAgent(
         if pattern == "フォロワー質問回答型":
             return self._generate_qa_answer_post(research_item, now, time_slot)
 
-        # Load recent post history for quality gate
+        # Load recent post history for quality gate and topic check
         history_data: dict[str, Any] = self.state.load_json("post_history.json")
         recent_posts: list[dict[str, Any]] = history_data.get("posts", [])
         recent_posts = recent_posts[-self.similarity_compare_count:]
+
+        # Topic repetition check: skip if same category+keyword appeared in last 3 posts
+        if self._is_topic_repeated(research_item, recent_posts):
+            self.logger.debug(
+                "Topic repeat detected for '%s' — skipping.",
+                research_item.get("id", "?"),
+            )
+            return None
 
         for attempt in range(1, self.max_generation_attempts + 1):
             self.logger.debug(
@@ -351,8 +359,11 @@ class WriterAgent(
 
             # 6. All checks passed — build queue item
             affiliate_comment: str | None = None
+            follow_up_comment: str | None = None
             if is_pr_slot:
                 affiliate_comment = self._extract_affiliate_comment(raw_content)
+            elif pattern == "コメント誘導型":
+                follow_up_comment = self._extract_follow_up_comment(raw_content)
 
             profile_cta_included = False
             if not is_pr_slot and random.random() < self.profile_cta_rate:
@@ -383,6 +394,7 @@ class WriterAgent(
                 "status": "pending",
                 "retry_count": 0,
                 "affiliate_comment": affiliate_comment,
+                "follow_up_comment": follow_up_comment,
                 "profile_cta_included": profile_cta_included,
                 "cta_pr_label": profile_cta_included or bool(affiliate_comment),
                 "debate_id": debate_theme["id"] if debate_theme else None,
@@ -396,3 +408,40 @@ class WriterAgent(
 
         # All attempts exhausted
         return None
+
+    # ------------------------------------------------------------------
+    # Topic repetition guard (F3)
+    # ------------------------------------------------------------------
+
+    _TOPIC_REPEAT_WINDOW = 3
+
+    def _is_topic_repeated(
+        self,
+        research_item: dict[str, Any],
+        recent_posts: list[dict[str, Any]],
+    ) -> bool:
+        """Return True if the same category+primary-keyword appeared in recent posts.
+
+        Prevents the same topic (e.g. "セラミド") from being published
+        in consecutive posts.
+
+        Args:
+            research_item: The candidate research item.
+            recent_posts: Most recent post history records (already sliced).
+
+        Returns:
+            True if the topic is considered repeated and should be skipped.
+        """
+        item_category = research_item.get("category", "")
+        item_keywords: list[str] = research_item.get("keywords", [])
+        if not item_keywords:
+            return False
+        primary_kw = item_keywords[0].lower()
+
+        for post in recent_posts[-self._TOPIC_REPEAT_WINDOW:]:
+            if post.get("category", "") != item_category:
+                continue
+            post_content = post.get("content", "").lower()
+            if primary_kw and primary_kw in post_content:
+                return True
+        return False

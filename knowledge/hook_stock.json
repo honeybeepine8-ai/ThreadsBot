@@ -1,12 +1,575 @@
 {
-  "last_updated": "2026-03-28T16:11:31.899029+09:00",
+  "last_updated": "2026-03-31T14:41:52.148151+09:00",
   "hooks": [
     {
       "text": "成分表の最初の5つだけ読んでみて。",
       "source": "manual",
       "category": "skincare_knowledge",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "行動指示 + 数字",
       "engagement_rate": 0.0,
       "added_at": "2026-03-28T16:11:31.899029+09:00"
+    },
+    {
+      "text": "ナイアシンアミド、まだ使ってない人は損してる",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "反常識型",
+      "engagement_type": "拡散",
+      "structure": "成分名 + 断言 + 損得フレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "セラミドの濃度、ちゃんと確認してる？",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "成分名 + 問いかけ",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "スキンケアで一番お金かけるべき順番、知ってる？",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "問いかけ + 意外性",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "洗顔フォームでモコモコ泡立てる必要、実はない",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "反常識型",
+      "engagement_type": "拡散",
+      "structure": "否定 + 意外性",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "レチノールA反応、怖がる必要ゼロだった",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "反常識型",
+      "engagement_type": "拡散",
+      "structure": "成分名 + 否定 + ゼロフレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "朝のスキンケア、実は3ステップで足りる",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "まとめ・結論先出型",
+      "engagement_type": "保存",
+      "structure": "結論 + 数字",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "5000円以下で買える最強化粧水、これだけ読んで",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "リスト系",
+      "engagement_type": "保存",
+      "structure": "価格 + 最強フレーム + 行動指示",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "毛穴が開く理由、ほとんどの人が勘違いしてる",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "反常識型",
+      "engagement_type": "拡散",
+      "structure": "問題提起 + 多数派批判",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "美白ケアに使われる成分、正直に言うと絞れる話",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "まとめ・結論先出型",
+      "engagement_type": "保存",
+      "structure": "結論先出 + 正直フレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "ビタミンCとレチノール、同時使いは本当にNGなの？",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "成分名2つ + 疑問符",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "化粧水をコットンでつけてた時期、完全に無駄だった",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "失敗談型",
+      "engagement_type": "拡散",
+      "structure": "過去の失敗 + 断言",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "肌荒れの9割は「洗いすぎ」が原因",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "数字インパクト型",
+      "engagement_type": "拡散",
+      "structure": "割合 + 単一原因",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "SPF50でも日焼けする理由、知ってる人少なすぎ",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "暴露・裏話系",
+      "engagement_type": "拡散",
+      "structure": "SPF + 逆説 + 知識格差フレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "冬の乾燥肌、乳液より先に塗るべきものがある",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "反常識型",
+      "engagement_type": "保存",
+      "structure": "季節 + 逆順提案",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "成分表の「後ろの方」にある成分、実は超大事",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "反常識型",
+      "engagement_type": "保存",
+      "structure": "逆説 + 意外性",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "毛穴ケアに注目してる成分、3ヶ月試した話",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "ビフォーアフター型",
+      "engagement_type": "保存",
+      "structure": "期間 + 結果 + 引き",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "スキンケアの「重ね塗り」、やりすぎてる人いない？",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "あるある + 問いかけ",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "プチプラで本当に効くスキンケア、正直に教える",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "まとめ・結論先出型",
+      "engagement_type": "保存",
+      "structure": "コスト + 正直フレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "日焼け止めの「PA++++」って4個と3個、差あるの？",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "成分表記 + 素朴な疑問",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "敏感肌の人がやりがちな間違い、これだけ気をつけて",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "リスト系",
+      "engagement_type": "保存",
+      "structure": "ターゲット絞り + 行動指示",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "保湿、化粧水よりクリームが大事ってほんと？",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "反常識型",
+      "engagement_type": "拡散",
+      "structure": "比較 + 疑問符",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "エイジングケアを始めるなら絶対この順番で",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "タイムライン型",
+      "engagement_type": "保存",
+      "structure": "テーマ + 順番フレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "最近バズってるグリシンって何が良いの？",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "需要確認型",
+      "engagement_type": "拡散",
+      "structure": "バズワード + 素朴な疑問",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "目元の乾燥がひどい人、アイクリームより先にやること",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "まとめ・結論先出型",
+      "engagement_type": "保存",
+      "structure": "悩み特定 + 逆順提案",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "ヒアルロン酸が「乾燥を悪化させる」って知ってた？",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "暴露・裏話系",
+      "engagement_type": "拡散",
+      "structure": "成分名 + ネガティブ暴露 + 疑問符",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "トナーと化粧水の違い、ちゃんと言える？",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "比較 + チャレンジ型問いかけ",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "花粉シーズンの肌荒れ、実は「バリア機能」の話",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "季節タイムリー型",
+      "engagement_type": "保存",
+      "structure": "季節 + メカニズム解説",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "コスパで選ぶ美容液、実は薬局で買える",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "暴露・裏話系",
+      "engagement_type": "拡散",
+      "structure": "コスパ + 意外な入手先",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "スキンケアに「順番」がある理由、聞いたことある？",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "問いかけ + メカニズム引き",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "肌のザラつき、スクラブじゃ解決しない理由",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "反常識型",
+      "engagement_type": "拡散",
+      "structure": "一般的方法の否定 + 理由引き",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "毎日クレンジングしてる人、少しだけ聞いて",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "ターゲット絞り + 呼びかけ",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "アルブチンとコウジ酸、白さへの効き方が違う話",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "二択・比較型",
+      "engagement_type": "保存",
+      "structure": "成分2つ + 違いフレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "「肌に優しい」って書いてある製品、まず疑って",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "反常識型",
+      "engagement_type": "拡散",
+      "structure": "マーケ用語 + 懐疑フレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "くすみが気になる人、まず試してほしいこと1つ",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "まとめ・結論先出型",
+      "engagement_type": "保存",
+      "structure": "悩み + 単一行動提案",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "EGF配合コスメ、実際に効くの？正直に答える",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "反常識型",
+      "engagement_type": "拡散",
+      "structure": "トレンド成分 + 正直フレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "洗顔後すぐ化粧水より、少し待つ方がいい話",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "反常識型",
+      "engagement_type": "保存",
+      "structure": "一般的手順の否定 + 代替提案",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "ニキビ跡と毛穴、同じアプローチしてない？",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "2つの悩みを混同している問いかけ",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "スキンケアを「引き算」にしたら肌が変わった",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "ビフォーアフター型",
+      "engagement_type": "保存",
+      "structure": "コンセプト + 変化フレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "美肌の人が共通して「やってないこと」がある",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "暴露・裏話系",
+      "engagement_type": "拡散",
+      "structure": "ポジティブ属性 + 否定法",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "シミを薄くしたい人、日焼け止めより先にすること",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "まとめ・結論先出型",
+      "engagement_type": "保存",
+      "structure": "悩み + 優先順位逆転",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "夏の終わりに肌が急に荒れる理由、知ってた？",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "季節タイムリー型",
+      "engagement_type": "拡散",
+      "structure": "季節変わり目 + メカニズム疑問",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "スキンケア歴10年で一番後悔してること",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "失敗談型",
+      "engagement_type": "拡散",
+      "structure": "経験年数 + 後悔フレーム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "「浸透する化粧水」って実は意味ない話",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "暴露・裏話系",
+      "engagement_type": "拡散",
+      "structure": "マーケ用語 + 無意味化",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "べたつくのが嫌でオイル避けてる人へ",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "反常識型",
+      "engagement_type": "拡散",
+      "structure": "ターゲット絞り + 逆説",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "口周りの乾燥、唇ケアより先にやること",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "まとめ・結論先出型",
+      "engagement_type": "保存",
+      "structure": "悩み部位 + 優先順位逆転",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "化粧品の「無添加」って何が入ってないか知ってる？",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "暴露・裏話系",
+      "engagement_type": "拡散",
+      "structure": "ラベル用語 + 知識格差問いかけ",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "ダイエット中に肌が荒れるのはなぜか",
+      "source": "manual",
+      "category": "diet_tips",
+      "pattern": "反常識型",
+      "engagement_type": "拡散",
+      "structure": "行動 + 副作用メカニズム",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "ランキング1位のクレンジング、私には合わなかった話",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "ランキング異議型",
+      "engagement_type": "拡散",
+      "structure": "権威否定 + 個人体験",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "スキンケア、何を削ればいい？まず試してほしい1つ",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "需要確認型",
+      "engagement_type": "拡散",
+      "structure": "引き算提案 + 行動指示",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "ピーリングを毎週やってた頃の肌がひどかった",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "失敗談型",
+      "engagement_type": "拡散",
+      "structure": "過去の失敗習慣 + 結果",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "肌のキメが整うって、実際どういう状態のこと？",
+      "source": "manual",
+      "category": "skincare_knowledge",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "曖昧概念の定義問いかけ",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "30代から肌質が変わったと感じてる人、これ読んで",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "コメント誘導型",
+      "engagement_type": "拡散",
+      "structure": "年代ターゲット + 行動指示",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "ビタミンC誘導体、種類によって全然違う話",
+      "source": "manual",
+      "category": "skincare_ingredients",
+      "pattern": "リスト系",
+      "engagement_type": "保存",
+      "structure": "成分名 + 種類比較引き",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "ニキビ予防のために「何も塗らない」を試してみた",
+      "source": "manual",
+      "category": "skincare_routine",
+      "pattern": "ビフォーアフター型",
+      "engagement_type": "拡散",
+      "structure": "極端な実験 + 結果引き",
+      "engagement_rate": 0.0,
+      "added_at": "2026-03-31"
+    },
+    {
+      "text": "セラミドだけで肌荒れが治った話",
+      "source": "auto",
+      "category": "skincare_ingredients",
+      "pattern": "実体験レビュー型",
+      "engagement_type": "実績あり",
+      "structure": "",
+      "engagement_rate": 0.08,
+      "added_at": "2026-03-31T14:41:51.998267+09:00"
+    },
+    {
+      "text": "ナイアシンアミドの本当の使い方",
+      "source": "auto",
+      "category": "skincare_ingredients",
+      "pattern": "反常識型",
+      "engagement_type": "実績あり",
+      "structure": "",
+      "engagement_rate": 0.06,
+      "added_at": "2026-03-31T14:41:51.998280+09:00"
     }
   ]
 }
